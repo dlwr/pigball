@@ -1,0 +1,18 @@
+export const PALETTE = {
+  background: 0x07090d,
+  playfield: 0x121722,
+  playfieldLine: 0x1d2433,
+  wall: 0x8d97a5,
+  bumper: 0xff5a1f,
+  bumperCap: 0x3a3f48,
+  sling: 0x1fd6b8,
+  target: 0xffc93c,
+  laneOff: 0x2a3344,
+  laneOn: 0x5ef0ff,
+  flipper: 0xf4f1ea,
+  flipperRubber: 0xff3b3b,
+  spinner: 0xd7dde6,
+  plunger: 0xb9c1cc,
+  ball: 0xe8ecf2,
+  spark: 0xffb070,
+};
