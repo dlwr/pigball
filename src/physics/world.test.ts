@@ -162,6 +162,15 @@ describe("World", () => {
     });
   });
 
+  it("プランジャーは引き量の上限までしか引けない", () => {
+    const world = new World(createParams());
+    const plunger = world.setPlunger({ ax: 46, bx: 50, restY: 3, travel: 3 });
+    plunger.held = true;
+    plunger.pullLimit = 0.4;
+    run(world, 1.5);
+    expect(plunger.pull).toBeCloseTo(0.4);
+  });
+
   describe("センサー", () => {
     it("ボールが横切ったときに1回だけイベントを出す", () => {
       const params = createParams();

@@ -64,6 +64,7 @@ export interface Plunger extends PlungerDef {
   prevY: number;
   vy: number;
   pull: number;
+  pullLimit: number;
   held: boolean;
 }
 
@@ -121,7 +122,7 @@ export class World {
   }
 
   setPlunger(def: PlungerDef): Plunger {
-    this.plunger = { ...def, y: def.restY, prevY: def.restY, vy: 0, pull: 0, held: false };
+    this.plunger = { ...def, y: def.restY, prevY: def.restY, vy: 0, pull: 0, pullLimit: 1, held: false };
     return this.plunger;
   }
 
@@ -161,7 +162,7 @@ export class World {
   private stepPlunger(plunger: Plunger, dt: number): void {
     plunger.prevY = plunger.y;
     if (plunger.held) {
-      plunger.pull = Math.min(1, plunger.pull + this.params.plungerPullRate * dt);
+      plunger.pull = Math.min(plunger.pullLimit, plunger.pull + this.params.plungerPullRate * dt);
       plunger.y = plunger.restY - plunger.pull * plunger.travel;
       plunger.vy = (plunger.y - plunger.prevY) / dt;
       return;
