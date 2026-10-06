@@ -1,6 +1,6 @@
 import type { PhysicsParams } from "../physics/params";
 import { type Flipper, type PhysicsEvent, type Segment, World } from "../physics/world";
-import { BALL_RADIUS, DRAIN_Y, SHOOTER_X, type TableLayout, createLayout } from "./table";
+import { BALL_RADIUS, DRAIN_Y, PLAYFIELD_WIDTH, SHOOTER_X, type TableLayout, createLayout } from "./table";
 
 export interface ScoreStorage {
   load(): number;
@@ -66,6 +66,7 @@ export class Game {
   spinnerAngle = 0;
   private spinnerVelocity = 0;
   private ballSaveTime = 0;
+  private exitedShooterLane = false;
   private tiltMeter = 0;
   private targetResetTime = 0;
   private readonly targets: Segment[];
@@ -86,7 +87,7 @@ export class Game {
     this.leftFlipper = world.addFlipper(layout.flippers.left);
     this.rightFlipper = world.addFlipper(layout.flippers.right);
     world.setPlunger(layout.plunger);
-    for (const def of [...layout.rollovers, layout.spinner]) world.addSensor(def);
+    for (const def of [...layout.rollovers, layout.spinner, layout.shooterExit]) world.addSensor(def);
     this.serveBall();
   }
 
@@ -113,8 +114,6 @@ export class Game {
     const plunger = this.world.plunger;
     if (!plunger || this.state === "over") return;
     if (plunger.held && !held && plunger.pull > 0 && this.state === "ready") {
-      this.state = "playing";
-      this.ballSaveTime = BALL_SAVE_SECONDS;
       this.emit("launch", SHOOTER_X, plunger.y, plunger.pull);
     }
     plunger.held = held;
@@ -159,6 +158,7 @@ export class Game {
     this.tiltMeter = Math.max(0, this.tiltMeter - TILT_DECAY * dt);
     this.stepSpinner(dt);
     this.stepTargets(dt);
+    this.checkLaunched();
     this.checkDrain();
   }
 
@@ -176,6 +176,10 @@ export class Game {
     if (event.type === "sensor") {
       if (id === "spinner") {
         this.spinnerVelocity += speed * SPINNER_GAIN;
+        return;
+      }
+      if (id === "shooter-exit") {
+        this.exitedShooterLane = true;
         return;
       }
       this.lightLane(Number(id.split("-")[1]), x, y, speed);
@@ -246,6 +250,13 @@ export class Game {
     this.addScore(SPINNER_POINTS_PER_TURN * turns);
     const { spinner } = this.layout;
     this.emit("spin", (spinner.ax + spinner.bx) / 2, spinner.ay, this.spinnerVelocity);
+  }
+
+  private checkLaunched(): void {
+    if (this.state !== "ready" || !this.world.balls.some((ball) => ball.x < PLAYFIELD_WIDTH)) return;
+    this.state = "playing";
+    this.ballSaveTime = this.exitedShooterLane ? BALL_SAVE_SECONDS : 0;
+    this.exitedShooterLane = false;
   }
 
   private checkDrain(): void {

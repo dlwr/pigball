@@ -38,13 +38,37 @@ describe("Game", () => {
     expect([game.ballsLeft, game.state, ball(game).x]).toEqual([3, "ready", SHOOTER_X]);
   });
 
-  it("プランジャーで打ち出すとプレイ中になる", () => {
-    const game = newGame();
-    game.setPlunger(true);
-    run(game, 0.5);
-    game.setPlunger(false);
-    run(game, 0.5);
-    expect(game.state).toBe("playing");
+  describe("打ち出し", () => {
+    const pullAndRelease = (game: Game, seconds: number) => {
+      game.setPlunger(true);
+      run(game, seconds);
+      game.setPlunger(false);
+      run(game, 1.5);
+    };
+
+    it("ボールがシューターレーンを出るとプレイ中になる", () => {
+      const game = newGame();
+      pullAndRelease(game, 1.2);
+      expect(game.state).toBe("playing");
+    });
+
+    it("ボールがシューターレーンを出るとボールセーブが始まる", () => {
+      const game = newGame();
+      pullAndRelease(game, 1.2);
+      expect(game.ballSaveActive).toBe(true);
+    });
+
+    it("弱く打ってレーンに戻ってきたら打ち直せる", () => {
+      const game = newGame();
+      pullAndRelease(game, 0.2);
+      expect(game.state).toBe("ready");
+    });
+
+    it("弱く打ってレーンに戻ってきてもボールセーブは始まらない", () => {
+      const game = newGame();
+      pullAndRelease(game, 0.2);
+      expect(game.ballSaveActive).toBe(false);
+    });
   });
 
   describe("実際の台での通しプレイ", () => {
@@ -86,8 +110,9 @@ describe("Game", () => {
     it("ボールセーブ中ならボール数を減らさずシューターに戻す", () => {
       const game = newGame();
       game.setPlunger(true);
-      run(game, 0.3);
+      run(game, 1.2);
       game.setPlunger(false);
+      run(game, 1.5);
       drain(game);
       expect(game.ballsLeft).toBe(3);
     });
