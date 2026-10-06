@@ -1,0 +1,334 @@
+import type { PhysicsParams } from "./params";
+
+export interface Ball {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  prevX: number;
+  prevY: number;
+  r: number;
+}
+
+export type SegmentKind = "wall" | "sling" | "target";
+
+export interface SegmentDef {
+  id: string;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  kind?: SegmentKind;
+  oneWay?: boolean;
+}
+
+export interface Segment extends Required<SegmentDef> {
+  enabled: boolean;
+}
+
+export interface BumperDef {
+  id: string;
+  x: number;
+  y: number;
+  r: number;
+  kick: number;
+}
+
+export interface FlipperDef {
+  id: string;
+  x: number;
+  y: number;
+  length: number;
+  baseRadius: number;
+  tipRadius: number;
+  restAngle: number;
+  activeAngle: number;
+}
+
+export interface Flipper extends FlipperDef {
+  angle: number;
+  prevAngle: number;
+  omega: number;
+  pressed: boolean;
+}
+
+export interface PlungerDef {
+  ax: number;
+  bx: number;
+  restY: number;
+  travel: number;
+}
+
+export interface Plunger extends PlungerDef {
+  y: number;
+  prevY: number;
+  vy: number;
+  pull: number;
+  held: boolean;
+}
+
+export interface SensorDef {
+  id: string;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+}
+
+export type PhysicsEvent =
+  | { type: "contact"; id: string; speed: number; x: number; y: number }
+  | { type: "sensor"; id: string; speed: number; x: number; y: number };
+
+const CONTACT_EVENT_SPEED = 4;
+
+export class World {
+  readonly balls: Ball[] = [];
+  readonly segments: Segment[] = [];
+  readonly bumpers: BumperDef[] = [];
+  readonly flippers: Flipper[] = [];
+  readonly sensors: SensorDef[] = [];
+  plunger: Plunger | null = null;
+  private events: PhysicsEvent[] = [];
+
+  constructor(readonly params: PhysicsParams) {}
+
+  spawnBall(x: number, y: number, r = 1.35): Ball {
+    const ball = { x, y, vx: 0, vy: 0, prevX: x, prevY: y, r };
+    this.balls.push(ball);
+    return ball;
+  }
+
+  removeBall(ball: Ball): void {
+    const i = this.balls.indexOf(ball);
+    if (i >= 0) this.balls.splice(i, 1);
+  }
+
+  addSegment(def: SegmentDef): Segment {
+    const seg = { kind: "wall" as const, oneWay: false, ...def, enabled: true };
+    this.segments.push(seg);
+    return seg;
+  }
+
+  addBumper(def: BumperDef): BumperDef {
+    this.bumpers.push(def);
+    return def;
+  }
+
+  addFlipper(def: FlipperDef): Flipper {
+    const flipper = { ...def, angle: def.restAngle, prevAngle: def.restAngle, omega: 0, pressed: false };
+    this.flippers.push(flipper);
+    return flipper;
+  }
+
+  setPlunger(def: PlungerDef): Plunger {
+    this.plunger = { ...def, y: def.restY, prevY: def.restY, vy: 0, pull: 0, held: false };
+    return this.plunger;
+  }
+
+  addSensor(def: SensorDef): SensorDef {
+    this.sensors.push(def);
+    return def;
+  }
+
+  nudge(dvx: number, dvy: number): void {
+    for (const ball of this.balls) {
+      ball.vx += dvx;
+      ball.vy += dvy;
+    }
+  }
+
+  drainEvents(): PhysicsEvent[] {
+    const events = this.events;
+    this.events = [];
+    return events;
+  }
+
+  step(dt: number): void {
+    for (const flipper of this.flippers) this.stepFlipper(flipper, dt);
+    if (this.plunger) this.stepPlunger(this.plunger, dt);
+    for (const ball of this.balls) this.stepBall(ball, dt);
+  }
+
+  private stepFlipper(flipper: Flipper, dt: number): void {
+    flipper.prevAngle = flipper.angle;
+    const target = flipper.pressed ? flipper.activeAngle : flipper.restAngle;
+    const maxDelta = this.params.flipperSpeed * dt;
+    const delta = Math.max(-maxDelta, Math.min(maxDelta, target - flipper.angle));
+    flipper.angle += delta;
+    flipper.omega = delta / dt;
+  }
+
+  private stepPlunger(plunger: Plunger, dt: number): void {
+    plunger.prevY = plunger.y;
+    if (plunger.held) {
+      plunger.pull = Math.min(1, plunger.pull + this.params.plungerPullRate * dt);
+      plunger.y = plunger.restY - plunger.pull * plunger.travel;
+      plunger.vy = (plunger.y - plunger.prevY) / dt;
+      return;
+    }
+    plunger.pull = 0;
+    if (plunger.y >= plunger.restY) {
+      plunger.y = plunger.restY;
+      plunger.vy = 0;
+      return;
+    }
+    plunger.vy += this.params.plungerStiffness * (plunger.restY - plunger.y) * dt;
+    plunger.y += plunger.vy * dt;
+    if (plunger.y >= plunger.restY) plunger.y = plunger.restY;
+  }
+
+  private stepBall(ball: Ball, dt: number): void {
+    const { params } = this;
+    ball.prevX = ball.x;
+    ball.prevY = ball.y;
+    ball.vy -= params.gravity * dt;
+    const speed = Math.hypot(ball.vx, ball.vy);
+    if (speed > params.maxSpeed) {
+      ball.vx *= params.maxSpeed / speed;
+      ball.vy *= params.maxSpeed / speed;
+    }
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+
+    for (const seg of this.segments) {
+      if (seg.enabled) this.collideSegment(ball, seg);
+    }
+    for (const bumper of this.bumpers) this.collideBumper(ball, bumper);
+    for (const flipper of this.flippers) this.collideFlipper(ball, flipper);
+    if (this.plunger) this.collidePlunger(ball, this.plunger);
+    for (const sensor of this.sensors) this.checkSensor(ball, sensor);
+  }
+
+  private collideSegment(ball: Ball, seg: Segment): void {
+    const hit = closestOnCapsule(ball.x, ball.y, seg.ax, seg.ay, seg.bx, seg.by, 0, 0);
+    if (hit.dist >= ball.r || hit.dist === 0) return;
+    const nx = (ball.x - hit.cx) / hit.dist;
+    const ny = (ball.y - hit.cy) / hit.dist;
+    if (seg.oneWay) {
+      const fx = -(seg.by - seg.ay);
+      const fy = seg.bx - seg.ax;
+      if (nx * fx + ny * fy < 0) return;
+      if (ball.vx * fx + ball.vy * fy > 0) return;
+    }
+    const impact = this.resolve(ball, nx, ny, ball.r - hit.dist, 0, 0, this.params.wallRestitution);
+    if (seg.kind === "sling" && impact >= this.params.slingMinImpact) {
+      kick(ball, nx, ny, this.params.slingKick);
+    }
+    this.emitContact(seg.id, impact, hit.cx, hit.cy, seg.kind !== "wall");
+  }
+
+  private collideBumper(ball: Ball, bumper: BumperDef): void {
+    const dx = ball.x - bumper.x;
+    const dy = ball.y - bumper.y;
+    const dist = Math.hypot(dx, dy);
+    const minDist = ball.r + bumper.r;
+    if (dist >= minDist || dist === 0) return;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const impact = this.resolve(ball, nx, ny, minDist - dist, 0, 0, this.params.wallRestitution);
+    kick(ball, nx, ny, bumper.kick);
+    this.emitContact(bumper.id, Math.max(impact, bumper.kick), bumper.x + nx * bumper.r, bumper.y + ny * bumper.r, true);
+  }
+
+  private collideFlipper(ball: Ball, flipper: Flipper): void {
+    const tipX = flipper.x + Math.cos(flipper.angle) * flipper.length;
+    const tipY = flipper.y + Math.sin(flipper.angle) * flipper.length;
+    const hit = closestOnCapsule(ball.x, ball.y, flipper.x, flipper.y, tipX, tipY, flipper.baseRadius, flipper.tipRadius);
+    const surface = hit.dist - hit.radius;
+    if (surface >= ball.r || hit.dist === 0) return;
+    const nx = (ball.x - hit.cx) / hit.dist;
+    const ny = (ball.y - hit.cy) / hit.dist;
+    const px = hit.cx + nx * hit.radius - flipper.x;
+    const py = hit.cy + ny * hit.radius - flipper.y;
+    const svx = -flipper.omega * py;
+    const svy = flipper.omega * px;
+    const impact = this.resolve(ball, nx, ny, ball.r - surface, svx, svy, this.params.flipperRestitution);
+    this.emitContact(flipper.id, impact, hit.cx + nx * hit.radius, hit.cy + ny * hit.radius, false);
+  }
+
+  private collidePlunger(ball: Ball, plunger: Plunger): void {
+    if (ball.x < plunger.ax || ball.x > plunger.bx) return;
+    const gap = ball.y - plunger.y;
+    if (gap >= ball.r || gap < -ball.r) return;
+    this.resolve(ball, 0, 1, ball.r - gap, 0, plunger.vy, 0.1);
+  }
+
+  private checkSensor(ball: Ball, sensor: SensorDef): void {
+    if (!segmentsCross(ball.prevX, ball.prevY, ball.x, ball.y, sensor.ax, sensor.ay, sensor.bx, sensor.by)) return;
+    this.events.push({ type: "sensor", id: sensor.id, speed: Math.hypot(ball.vx, ball.vy), x: ball.x, y: ball.y });
+  }
+
+  private resolve(ball: Ball, nx: number, ny: number, penetration: number, svx: number, svy: number, restitution: number): number {
+    ball.x += nx * penetration;
+    ball.y += ny * penetration;
+    const rvx = ball.vx - svx;
+    const rvy = ball.vy - svy;
+    const vn = rvx * nx + rvy * ny;
+    if (vn >= 0) return 0;
+    const e = -vn < this.params.restingSpeed ? 0 : restitution;
+    const dvn = -(1 + e) * vn;
+    ball.vx += dvn * nx;
+    ball.vy += dvn * ny;
+    const tx = -ny;
+    const ty = nx;
+    const vt = rvx * tx + rvy * ty;
+    const dvt = Math.sign(vt) * Math.min(Math.abs(vt), this.params.friction * dvn);
+    ball.vx -= dvt * tx;
+    ball.vy -= dvt * ty;
+    return -vn;
+  }
+
+  private emitContact(id: string, speed: number, x: number, y: number, always: boolean): void {
+    if (speed < CONTACT_EVENT_SPEED && !(always && speed > 0)) return;
+    this.events.push({ type: "contact", id, speed, x, y });
+  }
+}
+
+const kick = (ball: Ball, nx: number, ny: number, speed: number) => {
+  const vn = ball.vx * nx + ball.vy * ny;
+  if (vn >= speed) return;
+  ball.vx += (speed - vn) * nx;
+  ball.vy += (speed - vn) * ny;
+};
+
+const closestOnCapsule = (
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  ra: number,
+  rb: number,
+) => {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const lenSq = abx * abx + aby * aby;
+  const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / lenSq));
+  const cx = ax + abx * t;
+  const cy = ay + aby * t;
+  return { cx, cy, dist: Math.hypot(px - cx, py - cy), radius: ra + (rb - ra) * t };
+};
+
+const cross = (ax: number, ay: number, bx: number, by: number) => ax * by - ay * bx;
+
+const segmentsCross = (
+  p1x: number,
+  p1y: number,
+  p2x: number,
+  p2y: number,
+  q1x: number,
+  q1y: number,
+  q2x: number,
+  q2y: number,
+) => {
+  const rx = p2x - p1x;
+  const ry = p2y - p1y;
+  const sx = q2x - q1x;
+  const sy = q2y - q1y;
+  const denom = cross(rx, ry, sx, sy);
+  if (denom === 0) return false;
+  const t = cross(q1x - p1x, q1y - p1y, sx, sy) / denom;
+  const u = cross(q1x - p1x, q1y - p1y, rx, ry) / denom;
+  return t > 0 && t <= 1 && u >= 0 && u <= 1;
+};
