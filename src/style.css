@@ -1,1 +1,92 @@
-html,body{margin:0;background:#0b0d12}
+:root {
+  --bg: #07090d;
+  --text: #eef2f7;
+  --muted: #8a94a6;
+  --accent: #ff5a1f;
+  --cool: #5ef0ff;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+
+#app canvas {
+  display: block;
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: "Helvetica Neue", "Hiragino Sans", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-top {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-shadow: 0 0 18px rgba(255, 90, 31, 0.45);
+}
+
+.hud-score {
+  font-size: clamp(26px, 6vh, 44px);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.hud-meta {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.hud-mult {
+  color: var(--cool);
+}
+
+.hud-message {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 42%;
+  text-align: center;
+  font-size: clamp(14px, 2.4vh, 18px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+}
+
+.hud[data-state="tilt"] .hud-message {
+  color: var(--accent);
+  font-size: clamp(32px, 8vh, 64px);
+  font-weight: 900;
+}
+
+.hud[data-state="over"] .hud-message {
+  font-size: clamp(18px, 3vh, 24px);
+}
