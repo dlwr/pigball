@@ -54,10 +54,9 @@ const handle = (event: GameEvent) => {
 };
 
 let last = performance.now();
-let running = true;
+let frameId = 0;
 
 const frame = (now: number) => {
-  if (!running) return;
   const dt = Math.min((now - last) / 1000, MAX_FRAME_SECONDS);
   last = now;
   const started = performance.now();
@@ -76,21 +75,20 @@ const frame = (now: number) => {
   stats.steps = steps;
   renderer.render(alpha, dt);
   hud.update(game, dt);
+  frameId = requestAnimationFrame(frame);
   stats.frameMs = Math.round((stats.frameMs * 0.9 + (performance.now() - started) * 0.1) * 100) / 100;
-  requestAnimationFrame(frame);
 };
 
 document.addEventListener("visibilitychange", () => {
+  cancelAnimationFrame(frameId);
   if (document.hidden) {
-    running = false;
     sfx.suspend();
     return;
   }
-  running = true;
   stepper.reset();
   last = performance.now();
-  requestAnimationFrame(frame);
+  frameId = requestAnimationFrame(frame);
 });
 
 window.addEventListener("resize", () => renderer.resize());
-requestAnimationFrame(frame);
+frameId = requestAnimationFrame(frame);
