@@ -19,7 +19,7 @@ export const createParams = (): PhysicsParams => ({
   flipperRestitution: 0.25,
   friction: 0.15,
   restingSpeed: 6,
-  flipperSpeed: 28,
+  flipperSpeed: 35,
   plungerStiffness: 4000,
   plungerPullRate: 1.2,
   slingKick: 90,
