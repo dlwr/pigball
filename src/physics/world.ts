@@ -228,7 +228,7 @@ export class World {
     const ny = dy / dist;
     const impact = this.resolve(ball, nx, ny, minDist - dist, 0, 0, this.params.wallRestitution);
     kick(ball, nx, ny, bumper.kick);
-    this.emitContact(bumper.id, Math.max(impact, bumper.kick), bumper.x + nx * bumper.r, bumper.y + ny * bumper.r, true);
+    this.emitContact(bumper.id, impact, bumper.x + nx * bumper.r, bumper.y + ny * bumper.r, true);
   }
 
   private collideFlipper(ball: Ball, flipper: Flipper): void {
