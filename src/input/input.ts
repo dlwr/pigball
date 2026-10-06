@@ -109,6 +109,7 @@ export const bindInput = (target: HTMLElement, controls: Controls): (() => void)
   };
 
   const onPointerUp = (e: PointerEvent) => {
+    controls.interact();
     const track = touches.get(e.pointerId);
     if (!track) return;
     touches.delete(e.pointerId);
