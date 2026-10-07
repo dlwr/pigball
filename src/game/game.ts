@@ -1,5 +1,5 @@
 import type { PhysicsParams } from "../physics/params";
-import { type Flipper, LAYER_FLOOR, type PhysicsEvent, type Segment, World } from "../physics/world";
+import { type Ball, type Flipper, LAYER_FLOOR, type PhysicsEvent, type Segment, World } from "../physics/world";
 import { BALL_RADIUS, DRAIN_Y, PLAYFIELD_WIDTH, SHOOTER_X, type TableLayout, createLayout } from "./table";
 
 export interface ScoreStorage {
@@ -24,6 +24,7 @@ export type GameEventKind =
   | "ramp"
   | "launch"
   | "save"
+  | "kickback"
   | "multiball"
   | "jackpot"
   | "extraBall"
@@ -53,6 +54,7 @@ const SPINNER_DECAY = 1.5;
 const SPINNER_POINTS_PER_TURN = 25;
 const RAMP_COMBO_SECONDS = 4;
 const RAMPS_FOR_EXTRA_BALL = 5;
+const KICKBACK_SPEED = 130;
 const MULTIBALL_COMBO = 3;
 const MULTIBALL_EXTRA_BALLS = 2;
 const MULTIBALL_SAVE_SECONDS = 10;
@@ -89,6 +91,7 @@ export class Game {
   extraBalls = 0;
   bonus = 0;
   inMultiball = false;
+  kickbackLit = true;
   multiplier = 1;
   litLanes = [false, false, false];
   tilted = false;
@@ -124,7 +127,7 @@ export class Game {
     this.leftFlipper = world.addFlipper(layout.flippers.left);
     this.rightFlipper = world.addFlipper(layout.flippers.right);
     world.setPlunger(layout.plunger);
-    for (const def of [...layout.rollovers, layout.spinner, layout.shooterExit]) world.addSensor(def);
+    for (const def of [...layout.rollovers, layout.spinner, layout.shooterExit, layout.kickback]) world.addSensor(def);
     this.serveBall();
   }
 
@@ -182,6 +185,7 @@ export class Game {
     this.extraBalls = 0;
     this.rampsThisGame = 0;
     this.inMultiball = false;
+    this.kickbackLit = true;
     this.pendingLaunches = 0;
     this.state = "ready";
     for (const target of this.targets) target.enabled = true;
@@ -260,6 +264,10 @@ export class Game {
         this.spinnerVelocity += speed * SPINNER_GAIN;
         return;
       }
+      if (id === "kickback") {
+        this.fireKickback(event.ball);
+        return;
+      }
       if (id === "shooter-exit") {
         this.exitedShooterLane = true;
         return;
@@ -283,6 +291,14 @@ export class Game {
       return;
     }
     this.skillShotLit = false;
+  }
+
+  private fireKickback(ball: Ball): void {
+    if (!this.kickbackLit || ball.vy > 0) return;
+    this.kickbackLit = false;
+    ball.vx = 0;
+    ball.vy = KICKBACK_SPEED;
+    this.emit("kickback", ball.x, ball.y, KICKBACK_SPEED);
   }
 
   private completeRamp(x: number, y: number): void {
@@ -313,6 +329,7 @@ export class Game {
     if (this.targets.every((t) => !t.enabled)) {
       this.addScore(SCORES.bank);
       this.targetResetTime = TARGET_RESET_SECONDS;
+      this.kickbackLit = true;
       this.emit("bank", x, y, speed);
     }
   }

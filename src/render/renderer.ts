@@ -45,6 +45,7 @@ export class TableRenderer {
   private readonly spinner: THREE.Mesh;
   private readonly plunger: THREE.Mesh;
   private readonly saveLight: THREE.MeshStandardMaterial;
+  private readonly kickbackLight: THREE.MeshStandardMaterial;
   private readonly sparks = new Sparks();
   private readonly shake = new Shake();
   private readonly ramp: RampView;
@@ -82,6 +83,7 @@ export class TableRenderer {
     this.spinner = this.addSpinner();
     this.plunger = this.addPlunger();
     this.saveLight = this.addSaveLight();
+    this.kickbackLight = this.addKickbackLight();
     for (const flipper of game.world.flippers) this.addFlipper(flipper);
     this.ramp = new RampView(game.layout.ramp);
     this.scene.add(this.ramp.group);
@@ -151,6 +153,10 @@ export class TableRenderer {
         this.ramp.flash();
         this.sparks.burst(event.x, event.y, 120, 80, new THREE.Color(PALETTE.bumper), 3);
         this.shake.add(0.5);
+        break;
+      case "kickback":
+        this.sparks.burst(event.x, event.y, 30, 50, new THREE.Color(PALETTE.target));
+        this.shake.add(0.3);
         break;
       case "extraBall":
         this.sparks.burst(event.x, event.y, 80, 70, new THREE.Color(PALETTE.ramp));
@@ -285,6 +291,7 @@ export class TableRenderer {
     const plunger = game.world.plunger;
     if (plunger) this.plunger.position.y = plunger.y - 2.5;
     const blink = Math.sin(this.time * 12) > 0 ? 2.5 : 0.2;
+    this.kickbackLight.emissiveIntensity = game.kickbackLit ? 2 : 0.05;
     this.saveLight.emissiveIntensity = game.ballSaveActive ? blink : game.extraBalls > 0 ? 1.6 : 0.05;
   }
 
@@ -420,6 +427,16 @@ export class TableRenderer {
     mesh.position.set((plunger.ax + plunger.bx) / 2, plunger.restY - 2.5, 0.6);
     this.scene.add(mesh);
     return mesh;
+  }
+
+  private addKickbackLight(): THREE.MeshStandardMaterial {
+    const { kickback } = this.game.layout;
+    const material = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.target, emissiveIntensity: 0 });
+    const mesh = new THREE.Mesh(new THREE.CircleGeometry(0.9, 3), material);
+    mesh.rotation.z = Math.PI / 2;
+    mesh.position.set((kickback.ax + kickback.bx) / 2, kickback.ay + 5, 0.02);
+    this.scene.add(mesh);
+    return material;
   }
 
   private addSaveLight(): THREE.MeshStandardMaterial {

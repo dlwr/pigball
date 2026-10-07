@@ -588,6 +588,63 @@ describe("Game", () => {
     });
   });
 
+  describe("キックバック", () => {
+    const dropIntoLeftOutlane = (game: Game) => {
+      place(game, 2, 26, 0, -40);
+      let highest = 0;
+      for (let t = 0; t < 2 && game.ballsLeft === 3; t += DT) {
+        game.step(DT);
+        highest = Math.max(highest, ball(game)?.y ?? 0);
+      }
+      return highest;
+    };
+
+    const knockDownBank = (game: Game) => {
+      for (const target of game.layout.targets) {
+        place(game, target.ax + 2, (target.ay + target.by) / 2, -60, 0);
+        run(game, 0.05);
+      }
+    };
+
+    it("ゲーム開始時は点灯している", () => {
+      const game = newGame();
+      expect(game.kickbackLit).toBe(true);
+    });
+
+    it("点灯中に左アウトレーンに落ちたボールはプレイフィールドに打ち返される", () => {
+      const game = newGame();
+      expect(dropIntoLeftOutlane(game)).toBeGreaterThan(40);
+    });
+
+    it("一度使うと消える", () => {
+      const game = newGame();
+      dropIntoLeftOutlane(game);
+      expect(game.kickbackLit).toBe(false);
+    });
+
+    it("消えているときはそのままドレインする", () => {
+      const game = newGame();
+      dropIntoLeftOutlane(game);
+      run(game, 0.5);
+      dropIntoLeftOutlane(game);
+      expect(game.ballsLeft).toBe(2);
+    });
+
+    it("ターゲットバンクを倒しきると再び点灯する", () => {
+      const game = newGame();
+      dropIntoLeftOutlane(game);
+      knockDownBank(game);
+      expect(game.kickbackLit).toBe(true);
+    });
+
+    it("リスタートすると再び点灯する", () => {
+      const game = newGame();
+      dropIntoLeftOutlane(game);
+      game.restart();
+      expect(game.kickbackLit).toBe(true);
+    });
+  });
+
   describe("チルト", () => {
     it("短時間に揺らしすぎるとフリッパーが効かなくなる", () => {
       const game = newGame();
