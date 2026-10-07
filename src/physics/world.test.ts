@@ -76,6 +76,41 @@ describe("World", () => {
     });
   });
 
+  describe("穴と固定", () => {
+    const zeroGravityWorld = () => {
+      const params = createParams();
+      params.gravity = 0;
+      return new World(params);
+    };
+
+    it("穴に入ると一度だけイベントを出す", () => {
+      const world = zeroGravityWorld();
+      world.addHole({ id: "navel", x: 25, y: 50, r: 1.5 });
+      const ball = world.spawnBall(25, 45);
+      ball.vy = 30;
+      run(world, 0.5);
+      expect(world.drainEvents().filter((e) => e.type === "hole")).toHaveLength(1);
+    });
+
+    it("固定したボールは動かない", () => {
+      const world = new World(createParams());
+      const ball = world.spawnBall(25, 50);
+      ball.frozen = true;
+      run(world, 0.5);
+      expect([ball.x, ball.y]).toEqual([25, 50]);
+    });
+
+    it("固定したボールには他のボールも当たらない", () => {
+      const world = zeroGravityWorld();
+      const held = world.spawnBall(25, 50);
+      held.frozen = true;
+      const other = world.spawnBall(20, 50);
+      other.vx = 50;
+      run(world, 0.3);
+      expect(other.x).toBeGreaterThan(30);
+    });
+  });
+
   describe("ぽよんお腹", () => {
     const bounceOff = (kind: "wall" | "belly", speed: number) => {
       const params = createParams();
