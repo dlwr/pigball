@@ -16,3 +16,20 @@ export const localScoreStorage: ScoreStorage = {
     } catch {}
   },
 };
+
+const MUSIC_KEY = "pigball:music";
+
+export const musicPreference = {
+  load(): boolean {
+    try {
+      return localStorage.getItem(MUSIC_KEY) !== "off";
+    } catch {
+      return true;
+    }
+  },
+  save(enabled: boolean): void {
+    try {
+      localStorage.setItem(MUSIC_KEY, enabled ? "on" : "off");
+    } catch {}
+  },
+};

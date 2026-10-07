@@ -6,6 +6,7 @@ export interface Controls {
   plunger(held: boolean, limit: number): void;
   nudge(dx: number, dy: number): void;
   restart(): void;
+  toggleMusic(): void;
   interact(): void;
 }
 
@@ -48,7 +49,8 @@ export const bindInput = (target: HTMLElement, controls: Controls): (() => void)
     } else if (e.code in NUDGE_KEYS && spaceHeld) {
       const [dx, dy] = NUDGE_KEYS[e.code];
       controls.nudge(dx, dy);
-    } else if (e.code === "Enter" && controls.state() === "over") controls.restart();
+    } else if (e.code === "KeyM") controls.toggleMusic();
+    else if (e.code === "Enter" && controls.state() === "over") controls.restart();
     else return;
     e.preventDefault();
   };

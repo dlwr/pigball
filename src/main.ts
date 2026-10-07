@@ -1,3 +1,5 @@
+import { Music } from "./audio/music";
+import { levelFor } from "./audio/pattern";
 import { Sfx } from "./audio/sfx";
 import { FixedStepper } from "./core/stepper";
 import { Game, type GameEvent } from "./game/game";
@@ -5,7 +7,7 @@ import { Hud } from "./hud/hud";
 import { bindInput } from "./input/input";
 import { createParams } from "./physics/params";
 import { TableRenderer } from "./render/renderer";
-import { localScoreStorage } from "./storage";
+import { localScoreStorage, musicPreference } from "./storage";
 import "./style.css";
 
 const PHYSICS_HZ = 960;
@@ -19,6 +21,7 @@ const game = new Game(params, localScoreStorage);
 const renderer = new TableRenderer(app, game);
 const hud = new Hud(app);
 const sfx = new Sfx();
+const music = new Music(sfx, musicPreference.load());
 const stepper = new FixedStepper(1 / PHYSICS_HZ, PHYSICS_HZ * MAX_FRAME_SECONDS);
 const stats = { fps: 0, steps: 0, frameMs: 0 };
 
@@ -43,6 +46,11 @@ bindInput(app, {
   },
   nudge: (dx, dy) => game.nudge(dx, dy),
   restart: () => game.restart(),
+  toggleMusic() {
+    music.enabled = !music.enabled;
+    musicPreference.save(music.enabled);
+    hud.notice(music.enabled ? "MUSIC ON" : "MUSIC OFF");
+  },
   interact: () => sfx.unlock(),
 });
 
@@ -83,6 +91,7 @@ const frame = (now: number) => {
   stats.steps = steps;
   renderer.render(alpha, dt);
   hud.update(game, dt);
+  music.update(levelFor(game.state, game.inMultiball));
   frameId = requestAnimationFrame(frame);
   stats.frameMs = Math.round((stats.frameMs * 0.9 + (performance.now() - started) * 0.1) * 100) / 100;
 };
