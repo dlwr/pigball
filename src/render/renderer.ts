@@ -9,7 +9,7 @@ import { Sparks, Shake, Trail } from "./effects";
 import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { Piglet } from "./piglet";
-import { GooglyEye, type Mouth, type Snout, createCurlyTail, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
+import { GooglyEye, type Mouth, type Snout, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -44,6 +44,7 @@ export class TableRenderer {
   private readonly targetMeshes: THREE.Mesh[] = [];
   private readonly eyes: GooglyEye[] = [];
   private readonly snouts: Snout[] = [];
+  private readonly rotor: THREE.Group;
   private readonly thirdEyes: GooglyEye[] = [];
   private thirdEyeShown = 0;
   private readonly mouth: Mouth;
@@ -90,6 +91,7 @@ export class TableRenderer {
     for (const seg of game.layout.walls) this.addWall(seg, PALETTE.wall);
     this.addSlings();
     this.addBumpers();
+    this.rotor = this.addRotor();
     this.addTargets();
     this.addLanes();
     [this.spinner, this.spinnerGlow] = this.addSpinner();
@@ -144,6 +146,11 @@ export class TableRenderer {
         this.jiggleEyes(event.x, event.y, 25);
         this.sparks.burst(event.x, event.y, 18, 40, new THREE.Color(PALETTE.pigSnout));
         this.shake.add(0.15);
+        this.impact(event.speed);
+        break;
+      case "rotor":
+        this.sparks.burst(event.x, event.y, 10, 30, new THREE.Color(PALETTE.flipper));
+        this.jiggleEyes(event.x, event.y, 15);
         this.impact(event.speed);
         break;
       case "sling":
@@ -295,6 +302,8 @@ export class TableRenderer {
   }
 
   private syncFlippers(alpha: number): void {
+    const rotor = this.game.world.rotors[0];
+    if (rotor) this.rotor.rotation.z = rotor.prevAngle + (rotor.angle - rotor.prevAngle) * alpha;
     for (const [flipper, mesh] of this.flipperMeshes) {
       mesh.rotation.z = flipper.prevAngle + (flipper.angle - flipper.prevAngle) * alpha;
     }
@@ -419,6 +428,16 @@ export class TableRenderer {
       this.addEye(bumper.x + bumper.r * 0.5, bumper.y + bumper.r + 0.6, 0.8);
       this.thirdEyes.push(this.addEye(bumper.x + bumper.r * 0.05, bumper.y + bumper.r + 1.9, 0.65));
     }
+  }
+
+  private addRotor(): THREE.Group {
+    const { rotor } = this.game.layout;
+    const group = createRotor(rotor.arms, rotor.armLength, rotor.armRadius);
+    group.position.set(rotor.x, rotor.y, 1);
+    this.scene.add(group);
+    const eye = this.addEye(rotor.x, rotor.y, 0.75);
+    eye.object.position.z = 2.3;
+    return group;
   }
 
   private addEye(x: number, y: number, size: number): GooglyEye {

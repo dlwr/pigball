@@ -61,6 +61,24 @@ export interface Flipper extends FlipperDef {
   pressed: boolean;
 }
 
+export interface RotorDef {
+  id: string;
+  x: number;
+  y: number;
+  arms: number;
+  armLength: number;
+  armRadius: number;
+  inertia: number;
+  damping: number;
+  restitution: number;
+}
+
+export interface Rotor extends RotorDef {
+  angle: number;
+  prevAngle: number;
+  omega: number;
+}
+
 export interface PlungerDef {
   ax: number;
   bx: number;
@@ -104,6 +122,7 @@ export type PhysicsEvent =
 export interface WorldSnapshot {
   balls: { ball: Ball; state: Ball }[];
   flippers: Flipper[];
+  rotors: Rotor[];
   plunger: Plunger | null;
   recharges: number[];
 }
@@ -120,6 +139,7 @@ export class World {
   readonly segments: Segment[] = [];
   readonly bumpers: Bumper[] = [];
   readonly flippers: Flipper[] = [];
+  readonly rotors: Rotor[] = [];
   readonly sensors: SensorDef[] = [];
   readonly layerGates: LayerGateDef[] = [];
   plunger: Plunger | null = null;
@@ -157,6 +177,12 @@ export class World {
     return flipper;
   }
 
+  addRotor(def: RotorDef): Rotor {
+    const rotor = { ...def, angle: 0, prevAngle: 0, omega: 0 };
+    this.rotors.push(rotor);
+    return rotor;
+  }
+
   setPlunger(def: PlungerDef): Plunger {
     this.plunger = { ...def, y: def.restY, prevY: def.restY, vy: 0, pull: 0, pullLimit: 1, held: false };
     return this.plunger;
@@ -183,6 +209,7 @@ export class World {
     return {
       balls: this.balls.map((ball) => ({ ball, state: { ...ball } })),
       flippers: this.flippers.map((flipper) => ({ ...flipper })),
+      rotors: this.rotors.map((rotor) => ({ ...rotor })),
       plunger: this.plunger && { ...this.plunger },
       recharges: this.bumpers.map((bumper) => bumper.recharge),
     };
@@ -192,6 +219,7 @@ export class World {
     this.balls.length = 0;
     for (const { ball, state } of snapshot.balls) this.balls.push(Object.assign(ball, state));
     snapshot.flippers.forEach((state, i) => Object.assign(this.flippers[i], state));
+    snapshot.rotors.forEach((state, i) => Object.assign(this.rotors[i], state));
     if (this.plunger && snapshot.plunger) Object.assign(this.plunger, snapshot.plunger);
     snapshot.recharges.forEach((recharge, i) => (this.bumpers[i].recharge = recharge));
   }
@@ -206,6 +234,11 @@ export class World {
     this.stepDt = dt;
     for (const bumper of this.bumpers) bumper.recharge = Math.max(0, bumper.recharge - dt);
     for (const flipper of this.flippers) this.stepFlipper(flipper, dt);
+    for (const rotor of this.rotors) {
+      rotor.prevAngle = rotor.angle;
+      rotor.angle += rotor.omega * dt;
+      rotor.omega *= Math.exp(-rotor.damping * dt);
+    }
     if (this.plunger) this.stepPlunger(this.plunger, dt);
     for (const ball of this.balls) this.stepBall(ball, dt);
     for (let i = 0; i < this.balls.length; i++) {
@@ -284,6 +317,7 @@ export class World {
     if (ball.layer !== LAYER_FLOOR) return;
     for (const bumper of this.bumpers) this.collideBumper(ball, bumper);
     for (const flipper of this.flippers) this.collideFlipper(ball, flipper);
+    for (const rotor of this.rotors) this.collideRotor(ball, rotor);
     if (this.plunger) this.collidePlunger(ball, this.plunger);
     for (const sensor of this.sensors) this.checkSensor(ball, sensor);
   }
@@ -349,6 +383,32 @@ export class World {
     if (surface >= ball.r && svx * nx + svy * ny <= 0) return;
     const impact = this.resolve(ball, nx, ny, Math.max(0, ball.r - surface), svx, svy, this.params.flipperRestitution);
     this.emitContact(flipper.id, impact, hit.cx + nx * hit.radius, hit.cy + ny * hit.radius, false);
+  }
+
+  private collideRotor(ball: Ball, rotor: Rotor): void {
+    if (Math.hypot(ball.x - rotor.x, ball.y - rotor.y) > rotor.armLength + rotor.armRadius + ball.r) return;
+    for (let k = 0; k < rotor.arms; k++) {
+      const a = rotor.angle + (k * Math.PI * 2) / rotor.arms;
+      const tipX = rotor.x + Math.cos(a) * rotor.armLength;
+      const tipY = rotor.y + Math.sin(a) * rotor.armLength;
+      const hit = closestOnCapsule(ball.x, ball.y, rotor.x, rotor.y, tipX, tipY, rotor.armRadius, rotor.armRadius);
+      const surface = hit.dist - hit.radius;
+      if (surface >= ball.r || hit.dist === 0) continue;
+      const nx = (ball.x - hit.cx) / hit.dist;
+      const ny = (ball.y - hit.cy) / hit.dist;
+      const px = hit.cx + nx * hit.radius - rotor.x;
+      const py = hit.cy + ny * hit.radius - rotor.y;
+      ball.x += nx * (ball.r - surface);
+      ball.y += ny * (ball.r - surface);
+      const vn = (ball.vx + rotor.omega * py) * nx + (ball.vy - rotor.omega * px) * ny;
+      if (vn >= 0) continue;
+      const arm = px * ny - py * nx;
+      const impulse = (-(1 + rotor.restitution) * vn) / (1 + (arm * arm) / rotor.inertia);
+      ball.vx += impulse * nx;
+      ball.vy += impulse * ny;
+      rotor.omega -= (impulse * arm) / rotor.inertia;
+      this.emitContact(rotor.id, -vn, rotor.x + px, rotor.y + py, true);
+    }
   }
 
   private collidePlunger(ball: Ball, plunger: Plunger): void {

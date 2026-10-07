@@ -259,3 +259,27 @@ export const createPlayfieldSkin = (width: number, height: number): THREE.Canvas
   texture.repeat.set(width / 54, height / 110);
   return texture;
 };
+
+export const createRotor = (arms: number, armLength: number, armRadius: number): THREE.Group => {
+  const group = new THREE.Group();
+  const leg = standard(PALETTE.flipper, 0.5, PALETTE.flipper, 0.05);
+  const hoof = standard(PALETTE.hoof, 0.3);
+  for (let k = 0; k < arms; k++) {
+    const arm = new THREE.Group();
+    const shin = shadowed(new THREE.Mesh(new THREE.CapsuleGeometry(armRadius, armLength - armRadius * 2, 6, 12).rotateZ(Math.PI / 2), leg));
+    shin.position.set(armLength / 2, 0, 0);
+    shin.scale.set(1, 1.15, 1.6);
+    arm.add(shin);
+    for (const side of [-1, 1]) {
+      const toe = shadowed(new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), hoof));
+      toe.scale.set(armRadius * 1.3, armRadius * 0.75, armRadius * 1.3);
+      toe.position.set(armLength - armRadius * 0.3, side * armRadius * 0.5, 0);
+      arm.add(toe);
+    }
+    arm.rotation.z = (k * Math.PI * 2) / arms;
+    group.add(arm);
+  }
+  const hub = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(armRadius * 2.2, armRadius * 2.4, 0.9, 24).rotateX(Math.PI / 2), standard(PALETTE.pigSnout, 0.5)));
+  group.add(hub);
+  return group;
+};

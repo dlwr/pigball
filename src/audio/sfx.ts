@@ -46,6 +46,11 @@ export class Sfx {
         this.tone("sawtooth", 660, 330, 0.06, 0.15);
         this.burst(1800, 0.03, 0.4, 2);
         break;
+      case "rotor":
+        if (!this.throttle("rotor", 0.05)) return;
+        this.tone("triangle", 260 + s * 200, 140, 0.06, 0.25 + s * 0.3);
+        this.burst(900, 0.04, 0.3 + s * 0.3, 4);
+        break;
       case "sling":
         this.tone("square", 340, 170, 0.07, 0.3);
         this.burst(2600, 0.025, 0.35, 2);

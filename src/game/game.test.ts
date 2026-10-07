@@ -202,6 +202,26 @@ describe("Game", () => {
     expect([game.score, game.ballsLeft, game.state]).toEqual([0, 3, "ready"]);
   });
 
+  describe("風車", () => {
+    const hitRotor = (game: Game) => {
+      const { rotor } = game.layout;
+      place(game, rotor.x + 2.5, rotor.y - 6, 0, 120);
+      run(game, 0.1);
+    };
+
+    it("腕に当たるたびに50点入る", () => {
+      const game = newGame();
+      hitRotor(game);
+      expect([game.score > 0, game.score % 50]).toEqual([true, 0]);
+    });
+
+    it("当てると回り出す", () => {
+      const game = newGame();
+      hitRotor(game);
+      expect(Math.abs(game.world.rotors[0].omega)).toBeGreaterThan(1);
+    });
+  });
+
   it("バンパーに当てると100点", () => {
     const game = newGame();
     const bumper = game.layout.bumpers[0];
