@@ -10,7 +10,7 @@ import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { fitTiltedCamera } from "./camera";
 import { Piglet } from "./piglet";
-import { GooglyEye, type Mouth, type Rotor as RotorView, type Snout, createBelly, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
+import { GooglyEye, type Mouth, type Navel, type Rotor as RotorView, type Snout, createBelly, createNavel, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -49,6 +49,7 @@ export class TableRenderer {
   private readonly eyes: GooglyEye[] = [];
   private readonly snouts: Snout[] = [];
   private readonly rotor: RotorView;
+  private readonly navel: Navel;
   private frameDt = 0;
   private readonly thirdEyes: GooglyEye[] = [];
   private thirdEyeShown = 0;
@@ -93,6 +94,9 @@ export class TableRenderer {
     this.addSlings();
     this.addBumpers();
     this.addBellies();
+    const { navel } = game.layout;
+    this.navel = createNavel(navel.x, navel.y, navel.r);
+    this.scene.add(this.navel.object);
     this.rotor = this.addRotor();
     this.addTargets();
     this.addLanes();
@@ -158,6 +162,15 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 18, 40, new THREE.Color(PALETTE.pigSnout));
         this.shake.add(0.15);
         this.impact(event.speed);
+        break;
+      case "navelIn":
+        this.sparks.burst(event.x, event.y, 16, 20, new THREE.Color(PALETTE.pigSkin));
+        this.jiggleEyes(event.x, event.y, 20);
+        break;
+      case "navelOut":
+        this.navel.spit();
+        this.sparks.burst(event.x, event.y, 24, 45, new THREE.Color(PALETTE.tongue));
+        this.shake.add(0.2);
         break;
       case "belly":
         this.flash(event.id);
@@ -291,7 +304,7 @@ export class TableRenderer {
     for (const ball of balls) {
       const x = ball.prevX + (ball.x - ball.prevX) * alpha;
       const y = ball.prevY + (ball.y - ball.prevY) * alpha;
-      const targetZ = ball.layer === LAYER_RAMP ? this.ramp.heightAt(x, y) + ball.r : ball.r;
+      const targetZ = ball.layer === LAYER_RAMP ? this.ramp.heightAt(x, y) + ball.r : ball.frozen ? ball.r * 0.45 : ball.r;
       const view = this.ballViews.get(ball) ?? this.createBallView(ball, x, y, targetZ);
       const z = view.z + (targetZ - view.z) * Math.min(1, dt * 25);
       view.z = z;
@@ -337,6 +350,7 @@ export class TableRenderer {
       else if (glow.mesh) glow.mesh.scale.z = 1 - glow.value * 0.35;
     }
     for (const snout of this.snouts) snout.setLevel(game.multiplier, this.time, dt);
+    this.navel.update(game.holdingInNavel, this.time, dt);
     this.thirdEyeShown += ((game.multiplier >= 3 ? 1 : 0) - this.thirdEyeShown) * Math.min(1, dt * 10);
     for (const eye of this.thirdEyes) eye.shown = this.thirdEyeShown;
     const balls = game.world.balls;

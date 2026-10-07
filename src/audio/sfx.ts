@@ -46,6 +46,14 @@ export class Sfx {
         this.tone("sawtooth", 660, 330, 0.06, 0.15);
         this.burst(1800, 0.03, 0.4, 2);
         break;
+      case "navelIn":
+        this.tone("sine", 900, 180, 0.22, 0.35);
+        this.burst(2200, 0.18, 0.2, 1.5);
+        break;
+      case "navelOut":
+        this.tone("square", 220, 520, 0.06, 0.25);
+        this.burst(1600, 0.08, 0.45, 2);
+        break;
       case "belly":
         if (!this.throttle("belly", 0.08)) return;
         this.tone("sine", 140, 420, 0.09, 0.45);

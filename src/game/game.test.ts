@@ -202,6 +202,64 @@ describe("Game", () => {
     expect([game.score, game.ballsLeft, game.state]).toEqual([0, 3, "ready"]);
   });
 
+  describe("へそ", () => {
+    const dropIntoNavel = (game: Game) => {
+      const { navel } = game.layout;
+      place(game, navel.x, navel.y + 3, 0, -20);
+      run(game, 0.3);
+    };
+
+    const distanceFromNavel = (game: Game) => Math.hypot(ball(game).x - game.layout.navel.x, ball(game).y - game.layout.navel.y);
+
+    it("入ったボールはへそで止まる", () => {
+      const game = newGame();
+      dropIntoNavel(game);
+      expect([distanceFromNavel(game), ball(game).frozen]).toEqual([0, true]);
+    });
+
+    it("入ると1000点", () => {
+      const game = newGame();
+      dropIntoNavel(game);
+      expect(game.score).toBe(1000);
+    });
+
+    it("少しすると吐き出される", () => {
+      const game = newGame();
+      dropIntoNavel(game);
+      run(game, 1.5);
+      expect(distanceFromNavel(game)).toBeGreaterThan(4);
+    });
+
+    it("吐き出したボールをすぐには吸い込み直さない", () => {
+      const game = newGame();
+      dropIntoNavel(game);
+      run(game, 1.5);
+      expect(game.score).toBeLessThan(2000);
+    });
+
+    it("捕まえている間はボールセーブの時間が減らない", () => {
+      const game = newGame();
+      game.setPlunger(true);
+      run(game, 1.2);
+      game.setPlunger(false);
+      run(game, 1.5);
+      dropIntoNavel(game);
+      run(game, 0.5);
+      for (let t = 0; t < 6.4; t += DT) game.step(DT);
+      drain(game);
+      expect(game.ballsLeft).toBe(3);
+    });
+
+    it("先に1個捕まえていると、2個目は入らずに通り過ぎる", () => {
+      const game = newGame();
+      dropIntoNavel(game);
+      const second = game.world.spawnBall(game.layout.navel.x, game.layout.navel.y + 3);
+      second.vy = -20;
+      run(game, 0.3);
+      expect(second.frozen).toBe(false);
+    });
+  });
+
   describe("ぽよんお腹", () => {
     const hitBelly = (game: Game, index: number) => {
       const belly = game.layout.bellies[index];

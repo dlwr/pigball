@@ -12,6 +12,14 @@ export interface Ball {
   prevY: number;
   r: number;
   layer: number;
+  frozen: boolean;
+}
+
+export interface HoleDef {
+  id: string;
+  x: number;
+  y: number;
+  r: number;
 }
 
 export type SegmentKind = "wall" | "sling" | "target" | "belly";
@@ -117,7 +125,8 @@ export interface LayerGateDef {
 export type PhysicsEvent =
   | { type: "contact"; id: string; speed: number; x: number; y: number }
   | { type: "sensor"; id: string; speed: number; x: number; y: number; ball: Ball }
-  | { type: "gate"; id: string; layer: number; speed: number; x: number; y: number };
+  | { type: "gate"; id: string; layer: number; speed: number; x: number; y: number }
+  | { type: "hole"; id: string; speed: number; x: number; y: number; ball: Ball };
 
 export interface WorldSnapshot {
   balls: { ball: Ball; state: Ball }[];
@@ -141,6 +150,7 @@ export class World {
   readonly bumpers: Bumper[] = [];
   readonly flippers: Flipper[] = [];
   readonly rotors: Rotor[] = [];
+  readonly holes: HoleDef[] = [];
   readonly sensors: SensorDef[] = [];
   readonly layerGates: LayerGateDef[] = [];
   plunger: Plunger | null = null;
@@ -150,7 +160,7 @@ export class World {
   constructor(readonly params: PhysicsParams) {}
 
   spawnBall(x: number, y: number, r = 1.35): Ball {
-    const ball = { x, y, vx: 0, vy: 0, prevX: x, prevY: y, r, layer: LAYER_FLOOR };
+    const ball = { x, y, vx: 0, vy: 0, prevX: x, prevY: y, r, layer: LAYER_FLOOR, frozen: false };
     this.balls.push(ball);
     return ball;
   }
@@ -176,6 +186,11 @@ export class World {
     const flipper = { ...def, angle: def.restAngle, prevAngle: def.restAngle, omega: 0, pressed: false };
     this.flippers.push(flipper);
     return flipper;
+  }
+
+  addHole(def: HoleDef): HoleDef {
+    this.holes.push(def);
+    return def;
   }
 
   addRotor(def: RotorDef): Rotor {
@@ -241,14 +256,19 @@ export class World {
       rotor.omega *= Math.exp(-rotor.damping * dt);
     }
     if (this.plunger) this.stepPlunger(this.plunger, dt);
-    for (const ball of this.balls) this.stepBall(ball, dt);
+    for (const ball of this.balls) {
+      if (ball.frozen) {
+        ball.prevX = ball.x;
+        ball.prevY = ball.y;
+      } else this.stepBall(ball, dt);
+    }
     for (let i = 0; i < this.balls.length; i++) {
       for (let j = i + 1; j < this.balls.length; j++) this.collideBalls(this.balls[i], this.balls[j]);
     }
   }
 
   private collideBalls(a: Ball, b: Ball): void {
-    if (a.layer !== b.layer) return;
+    if (a.layer !== b.layer || a.frozen || b.frozen) return;
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const dist = Math.hypot(dx, dy);
@@ -321,6 +341,7 @@ export class World {
     for (const rotor of this.rotors) this.collideRotor(ball, rotor);
     if (this.plunger) this.collidePlunger(ball, this.plunger);
     for (const sensor of this.sensors) this.checkSensor(ball, sensor);
+    for (const hole of this.holes) this.checkHole(ball, hole);
   }
 
   private checkLayerGate(ball: Ball, gate: LayerGateDef): void {
@@ -418,6 +439,13 @@ export class World {
     const gap = ball.y - plunger.y;
     if (gap >= ball.r || gap < -ball.r) return;
     this.resolve(ball, 0, 1, ball.r - gap, 0, plunger.vy, 0.1);
+  }
+
+  private checkHole(ball: Ball, hole: HoleDef): void {
+    const inside = Math.hypot(ball.x - hole.x, ball.y - hole.y) < hole.r;
+    const wasInside = Math.hypot(ball.prevX - hole.x, ball.prevY - hole.y) < hole.r;
+    if (!inside || wasInside) return;
+    this.events.push({ type: "hole", id: hole.id, speed: Math.hypot(ball.vx, ball.vy), x: ball.x, y: ball.y, ball });
   }
 
   private checkSensor(ball: Ball, sensor: SensorDef): void {

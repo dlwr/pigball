@@ -338,3 +338,35 @@ export const createBelly = (seg: SegmentDef, inward: number): Part => {
     },
   };
 };
+
+export interface Navel {
+  object: THREE.Object3D;
+  update(holding: boolean, time: number, dt: number): void;
+  spit(): void;
+}
+
+export const createNavel = (x: number, y: number, r: number): Navel => {
+  const group = new THREE.Group();
+  const pit = new THREE.Mesh(new THREE.CircleGeometry(r * 1.05, 32), standard(PALETTE.mouth, 0.95));
+  pit.position.z = 0.02;
+  const swirl = new THREE.Mesh(new THREE.TorusGeometry(r * 0.45, 0.07, 6, 24, Math.PI * 1.5), standard(PALETTE.gum, 0.8));
+  swirl.position.z = 0.04;
+  const rim = shadowed(new THREE.Mesh(new THREE.TorusGeometry(r * 1.15, 0.38, 12, 32), standard(PALETTE.pigSkin, 0.6, PALETTE.pigSkin, 0.06)));
+  rim.position.z = 0.15;
+  rim.scale.z = 0.7;
+  group.add(pit, swirl, rim);
+  group.position.set(x, y, 0);
+  let spit = 0;
+  return {
+    object: group,
+    update(holding, time, dt) {
+      spit *= Math.exp(-dt * 7);
+      const chew = holding ? Math.abs(Math.sin(time * 14)) * 0.12 : 0;
+      rim.scale.set(1 - chew + spit * 0.35, 1 + chew * 0.6 + spit * 0.35, 0.7);
+      swirl.rotation.z = time * (holding ? 6 : 0.6);
+    },
+    spit() {
+      spit = 1;
+    },
+  };
+};
