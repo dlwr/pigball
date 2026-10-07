@@ -27,6 +27,7 @@ body {
 
 #app canvas {
   display: block;
+  margin: 0 auto;
 }
 
 .hud {
