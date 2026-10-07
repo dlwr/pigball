@@ -1,4 +1,4 @@
-import type { Game } from "../game/game";
+import type { Game, GameEvent } from "../game/game";
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
 
@@ -9,6 +9,8 @@ export class Hud {
   private readonly balls: HTMLElement;
   private readonly multiplier: HTMLElement;
   private readonly message: HTMLElement;
+  private readonly toast: HTMLElement;
+  private toastTime = 0;
   private shownScore = 0;
   private lastText = "";
 
@@ -24,16 +26,36 @@ export class Hud {
           <span class="hud-high"></span>
         </div>
       </div>
-      <div class="hud-message"></div>`;
+      <div class="hud-message"></div>
+      <div class="hud-toast"></div>`;
     container.appendChild(this.root);
     this.score = this.root.querySelector(".hud-score")!;
     this.high = this.root.querySelector(".hud-high")!;
     this.balls = this.root.querySelector(".hud-balls")!;
     this.multiplier = this.root.querySelector(".hud-mult")!;
     this.message = this.root.querySelector(".hud-message")!;
+    this.toast = this.root.querySelector(".hud-toast")!;
+  }
+
+  onEvent(event: GameEvent, game: Game): void {
+    if (event.kind === "ramp") this.showToast(event.speed > 1 ? `RAMP COMBO ×${event.speed}` : "RAMP");
+    else if (event.kind === "lanes") this.showToast(`MULTIPLIER ×${game.multiplier}`);
+    else if (event.kind === "bank") this.showToast("TARGET BANK");
+  }
+
+  private showToast(text: string): void {
+    this.toast.textContent = text;
+    this.toast.classList.remove("show");
+    void this.toast.offsetWidth;
+    this.toast.classList.add("show");
+    this.toastTime = 1.3;
   }
 
   update(game: Game, dt: number): void {
+    if (this.toastTime > 0) {
+      this.toastTime -= dt;
+      if (this.toastTime <= 0) this.toast.classList.remove("show");
+    }
     const diff = game.score - this.shownScore;
     this.shownScore = diff > 0 ? Math.min(game.score, this.shownScore + Math.max(1, Math.ceil(diff * Math.min(1, dt * 12)))) : game.score;
     const text = [
