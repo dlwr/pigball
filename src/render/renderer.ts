@@ -43,6 +43,9 @@ export class TableRenderer {
   private readonly targetMeshes: THREE.Mesh[] = [];
   private readonly laneMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly spinner: THREE.Mesh;
+  private readonly spinnerGlow: THREE.MeshStandardMaterial;
+  private spinnerSpeed = 0;
+  private lastSpinnerAngle = 0;
   private readonly plunger: THREE.Mesh;
   private readonly saveLight: THREE.MeshStandardMaterial;
   private readonly kickbackLight: THREE.MeshStandardMaterial;
@@ -80,7 +83,7 @@ export class TableRenderer {
     this.addBumpers();
     this.addTargets();
     this.addLanes();
-    this.spinner = this.addSpinner();
+    [this.spinner, this.spinnerGlow] = this.addSpinner();
     this.plunger = this.addPlunger();
     this.saveLight = this.addSaveLight();
     this.kickbackLight = this.addKickbackLight();
@@ -288,6 +291,10 @@ export class TableRenderer {
       material.emissiveIntensity = lit ? 2.2 : 0.4;
     });
     this.spinner.rotation.x = game.spinnerAngle;
+    const spin = dt > 0 ? (game.spinnerAngle - this.lastSpinnerAngle) / dt : 0;
+    this.lastSpinnerAngle = game.spinnerAngle;
+    this.spinnerSpeed += (spin - this.spinnerSpeed) * Math.min(1, dt * 10);
+    this.spinnerGlow.emissiveIntensity = 0.3 + Math.min(3, this.spinnerSpeed / 10);
     const plunger = game.world.plunger;
     if (plunger) this.plunger.position.y = plunger.y - 2.5;
     const blink = Math.sin(this.time * 12) > 0 ? 2.5 : 0.2;
@@ -406,16 +413,29 @@ export class TableRenderer {
     }
   }
 
-  private addSpinner(): THREE.Mesh {
+  private addSpinner(): [THREE.Mesh, THREE.MeshStandardMaterial] {
     const { spinner } = this.game.layout;
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(spinner.bx - spinner.ax, 0.12, 1.6),
+    const width = spinner.bx - spinner.ax;
+    const cx = (spinner.ax + spinner.bx) / 2;
+    const glow = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.spark, emissiveIntensity: 0.3 });
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(width, 1.4), glow);
+    strip.position.set(cx, spinner.ay, 0.02);
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.4, 0.12, 1.6),
       new THREE.MeshStandardMaterial({ color: PALETTE.spinner, metalness: 1, roughness: 0.2 }),
     );
-    mesh.position.set((spinner.ax + spinner.bx) / 2, spinner.ay, 2.2);
-    mesh.castShadow = true;
-    this.scene.add(mesh);
-    return mesh;
+    plate.position.set(cx, spinner.ay, 2.2);
+    plate.castShadow = true;
+    const postGeometry = new THREE.CylinderGeometry(0.3, 0.3, 3.2, 12).rotateX(Math.PI / 2);
+    const postMaterial = new THREE.MeshStandardMaterial({ color: PALETTE.wall, metalness: 0.8, roughness: 0.3 });
+    for (const x of [spinner.ax, spinner.bx]) {
+      const post = new THREE.Mesh(postGeometry, postMaterial);
+      post.position.set(x, spinner.ay, 1.6);
+      post.castShadow = true;
+      this.scene.add(post);
+    }
+    this.scene.add(strip, plate);
+    return [plate, glow];
   }
 
   private addPlunger(): THREE.Mesh {
