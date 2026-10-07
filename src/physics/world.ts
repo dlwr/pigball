@@ -31,6 +31,14 @@ export interface Mover extends MoverDef {
   enabled: boolean;
 }
 
+export interface MudDef {
+  id: string;
+  x: number;
+  y: number;
+  r: number;
+  drag: number;
+}
+
 export interface HoleDef {
   id: string;
   x: number;
@@ -169,6 +177,7 @@ export class World {
   readonly rotors: Rotor[] = [];
   readonly holes: HoleDef[] = [];
   readonly movers: Mover[] = [];
+  readonly muds: MudDef[] = [];
   readonly sensors: SensorDef[] = [];
   readonly layerGates: LayerGateDef[] = [];
   plunger: Plunger | null = null;
@@ -210,6 +219,11 @@ export class World {
     const mover = { ...def, x: (def.ax + def.bx) / 2, vx: 0, phase: 0, enabled: true };
     this.movers.push(mover);
     return mover;
+  }
+
+  addMud(def: MudDef): MudDef {
+    this.muds.push(def);
+    return def;
   }
 
   addHole(def: HoleDef): HoleDef {
@@ -370,6 +384,7 @@ export class World {
     if (this.plunger) this.collidePlunger(ball, this.plunger);
     for (const sensor of this.sensors) this.checkSensor(ball, sensor);
     for (const hole of this.holes) this.checkHole(ball, hole);
+    for (const mud of this.muds) this.wadeThroughMud(ball, mud, dt);
   }
 
   private checkLayerGate(ball: Ball, gate: LayerGateDef): void {
@@ -486,6 +501,14 @@ export class World {
     const gap = ball.y - plunger.y;
     if (gap >= ball.r || gap < -ball.r) return;
     this.resolve(ball, 0, 1, ball.r - gap, 0, plunger.vy, 0.1);
+  }
+
+  private wadeThroughMud(ball: Ball, mud: MudDef, dt: number): void {
+    if (Math.hypot(ball.x - mud.x, ball.y - mud.y) >= mud.r) return;
+    const slow = Math.exp(-mud.drag * dt);
+    ball.vx *= slow;
+    ball.vy *= slow;
+    this.checkHole(ball, mud);
   }
 
   private checkHole(ball: Ball, hole: HoleDef): void {
