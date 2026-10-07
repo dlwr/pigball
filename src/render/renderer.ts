@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { Game, GameEvent } from "../game/game";
 import { TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
-import type { Flipper, SegmentDef } from "../physics/world";
+import type { Ball, Flipper, SegmentDef } from "../physics/world";
 import { LAYER_RAMP } from "../physics/world";
 import { Sparks, Shake, Trail } from "./effects";
 import { RampView } from "./ramp";
@@ -14,6 +14,12 @@ const WALL_THICKNESS = 0.5;
 const MARGIN = 1.5;
 const VIEW_BOTTOM = -3.5;
 const VIEW_TOP = TABLE_HEIGHT + 12;
+
+interface BallView {
+  mesh: THREE.Mesh;
+  trail: Trail;
+  z: number;
+}
 
 interface Glow {
   material: THREE.MeshStandardMaterial;
@@ -28,7 +34,8 @@ export class TableRenderer {
   private readonly composer: EffectComposer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera();
-  private readonly ballMeshes: THREE.Mesh[] = [];
+  private readonly ballViews = new Map<Ball, BallView>();
+  private readonly spareBallViews: BallView[] = [];
   private readonly ballGeometry: THREE.SphereGeometry;
   private readonly ballMaterial: THREE.MeshStandardMaterial;
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
@@ -38,7 +45,6 @@ export class TableRenderer {
   private readonly spinner: THREE.Mesh;
   private readonly plunger: THREE.Mesh;
   private readonly saveLight: THREE.MeshStandardMaterial;
-  private readonly trail = new Trail(1.1, 0x7fd8ff);
   private readonly sparks = new Sparks();
   private readonly shake = new Shake();
   private readonly ramp: RampView;
@@ -82,7 +88,7 @@ export class TableRenderer {
 
     this.ballGeometry = new THREE.SphereGeometry(1, 32, 24);
     this.ballMaterial = new THREE.MeshStandardMaterial({ color: PALETTE.ball, metalness: 1, roughness: 0.12 });
-    this.scene.add(this.trail.mesh, this.sparks.points);
+    this.scene.add(this.sparks.points);
 
     this.composer = new EffectComposer(this.renderer, { multisampling: Math.min(4, this.renderer.capabilities.maxSamples) });
     this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -202,37 +208,48 @@ export class TableRenderer {
 
   private syncBalls(alpha: number, dt: number): void {
     const balls = this.game.world.balls;
-    while (this.ballMeshes.length < balls.length) {
-      const mesh = new THREE.Mesh(this.ballGeometry, this.ballMaterial);
-      mesh.castShadow = true;
-      this.ballMeshes.push(mesh);
-      this.scene.add(mesh);
-      this.trail.reset(balls[0]?.x ?? 0, balls[0]?.y ?? 0);
+    for (const [ball, view] of this.ballViews) {
+      if (balls.includes(ball)) continue;
+      view.mesh.visible = false;
+      view.trail.mesh.visible = false;
+      this.ballViews.delete(ball);
+      this.spareBallViews.push(view);
     }
-    for (let i = 0; i < this.ballMeshes.length; i++) {
-      const mesh = this.ballMeshes[i];
-      const ball = balls[i];
-      mesh.visible = !!ball;
-      if (!ball) continue;
+    const k = 700;
+    this.squashVelocity += (-k * this.squash - 2 * 0.3 * Math.sqrt(k) * this.squashVelocity) * dt;
+    this.squash += this.squashVelocity * dt;
+    for (const ball of balls) {
       const x = ball.prevX + (ball.x - ball.prevX) * alpha;
       const y = ball.prevY + (ball.y - ball.prevY) * alpha;
-      if (Math.hypot(mesh.position.x - x, mesh.position.y - y) > 10) this.trail.reset(x, y);
       const targetZ = ball.layer === LAYER_RAMP ? this.ramp.heightAt(x, y) + ball.r : ball.r;
-      const z = (mesh.userData.z ?? targetZ) + (targetZ - (mesh.userData.z ?? targetZ)) * Math.min(1, dt * 25);
-      mesh.userData.z = z;
-      mesh.position.set(x, y, z);
+      const view = this.ballViews.get(ball) ?? this.createBallView(ball, x, y, targetZ);
+      const z = view.z + (targetZ - view.z) * Math.min(1, dt * 25);
+      view.z = z;
+      view.mesh.position.set(x, y, z);
       const speed = Math.hypot(ball.vx, ball.vy);
-      const k = 700;
-      this.squashVelocity += (-k * this.squash - 2 * 0.3 * Math.sqrt(k) * this.squashVelocity) * dt;
-      this.squash += this.squashVelocity * dt;
       const along = Math.max(0.68, 1 + Math.min(0.25, speed / 1200) + this.squash);
       const across = 1 / Math.sqrt(along);
-      mesh.rotation.set(0, 0, Math.atan2(ball.vy, ball.vx));
+      view.mesh.rotation.set(0, 0, Math.atan2(ball.vy, ball.vx));
       const lift = 1 + (z - ball.r) * 0.035;
-      mesh.scale.set(ball.r * along * lift, ball.r * across * lift, ball.r * across * lift);
-      if (i === 0) this.trail.update(x, y, z - ball.r + 0.3, speed);
+      view.mesh.scale.set(ball.r * along * lift, ball.r * across * lift, ball.r * across * lift);
+      view.trail.update(x, y, z - ball.r + 0.3, speed);
     }
-    this.trail.mesh.visible = balls.length > 0;
+  }
+
+  private createBallView(ball: Ball, x: number, y: number, z: number): BallView {
+    let view = this.spareBallViews.pop();
+    if (!view) {
+      const mesh = new THREE.Mesh(this.ballGeometry, this.ballMaterial);
+      mesh.castShadow = true;
+      view = { mesh, trail: new Trail(1.1, 0x7fd8ff), z };
+      this.scene.add(mesh, view.trail.mesh);
+    }
+    view.z = z;
+    view.mesh.visible = true;
+    view.trail.mesh.visible = true;
+    view.trail.reset(x, y);
+    this.ballViews.set(ball, view);
+    return view;
   }
 
   private syncFlippers(alpha: number): void {
