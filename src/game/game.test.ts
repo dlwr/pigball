@@ -202,6 +202,16 @@ describe("Game", () => {
     expect([game.score, game.ballsLeft, game.state]).toEqual([0, 3, "ready"]);
   });
 
+  describe("泥んこ沼", () => {
+    it("入ると100点", () => {
+      const game = newGame();
+      const { mud } = game.layout;
+      place(game, mud.x, mud.y + mud.r + 0.5, 0, -30);
+      run(game, 0.05);
+      expect(game.score).toBe(100);
+    });
+  });
+
   describe("貯金箱", () => {
     const hitPiggy = (game: Game) => {
       const piggy = game.world.movers[0];

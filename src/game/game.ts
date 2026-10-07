@@ -16,6 +16,7 @@ export type GameEventKind =
   | "belly"
   | "navelIn"
   | "piggy"
+  | "mud"
   | "piggyBreak"
   | "piggyBack"
   | "navelOut"
@@ -84,6 +85,7 @@ const SCORES = {
   belly: 30,
   navel: 1000,
   piggy: 250,
+  mud: 100,
   piggyBreak: 7500,
   target: 500,
   bank: 5000,
@@ -173,6 +175,7 @@ export class Game {
     world.addRotor(layout.rotor);
     world.addHole(layout.navel);
     world.addMover(layout.piggy);
+    world.addMud(layout.mud);
     this.leftFlipper = world.addFlipper(layout.flippers.left);
     this.rightFlipper = world.addFlipper(layout.flippers.right);
     world.setPlunger(layout.plunger);
@@ -356,7 +359,10 @@ export class Game {
       return;
     }
     if (event.type === "hole") {
-      this.captureInNavel(event.ball);
+      if (id === "mud") {
+        this.addScore(SCORES.mud);
+        this.emit("mud", x, y, speed);
+      } else this.captureInNavel(event.ball);
       return;
     }
     if (event.type === "sensor") {
