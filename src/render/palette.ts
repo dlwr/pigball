@@ -15,4 +15,5 @@ export const PALETTE = {
   plunger: 0xb9c1cc,
   ball: 0xe8ecf2,
   spark: 0xffb070,
+  ramp: 0x6fd3ff,
 };

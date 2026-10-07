@@ -4,7 +4,9 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import type { Game, GameEvent } from "../game/game";
 import { TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
 import type { Flipper, SegmentDef } from "../physics/world";
+import { LAYER_RAMP } from "../physics/world";
 import { Sparks, Shake, Trail } from "./effects";
+import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 
 const WALL_HEIGHT = 1.6;
@@ -39,6 +41,7 @@ export class TableRenderer {
   private readonly trail = new Trail(1.1, 0x7fd8ff);
   private readonly sparks = new Sparks();
   private readonly shake = new Shake();
+  private readonly ramp: RampView;
   private squash = 0;
   private squashVelocity = 0;
   private time = 0;
@@ -74,6 +77,8 @@ export class TableRenderer {
     this.plunger = this.addPlunger();
     this.saveLight = this.addSaveLight();
     for (const flipper of game.world.flippers) this.addFlipper(flipper);
+    this.ramp = new RampView(game.layout.ramp);
+    this.scene.add(this.ramp.group);
 
     this.ballGeometry = new THREE.SphereGeometry(1, 32, 24);
     this.ballMaterial = new THREE.MeshStandardMaterial({ color: PALETTE.ball, metalness: 1, roughness: 0.12 });
@@ -146,6 +151,14 @@ export class TableRenderer {
         }
         this.impact(event.speed);
         break;
+      case "rampEnter":
+        this.sparks.burst(event.x, event.y, 6, 15, new THREE.Color(PALETTE.ramp), 4);
+        break;
+      case "ramp":
+        this.ramp.flash();
+        this.sparks.burst(event.x, event.y, 30 + event.speed * 15, 45, new THREE.Color(PALETTE.ramp), 3);
+        this.shake.add(0.2 + event.speed * 0.1);
+        break;
       case "launch":
         this.shake.add(0.1 + event.speed * 0.2);
         break;
@@ -163,6 +176,7 @@ export class TableRenderer {
     this.syncFlippers(alpha);
     this.syncProps(dt);
     this.sparks.update(dt);
+    this.ramp.update(dt);
     const [sx, sy] = this.shake.offset(dt, 1.2);
     this.camera.position.set(this.center.x + sx, this.center.y + sy, 50);
     this.composer.render(dt);
@@ -195,7 +209,10 @@ export class TableRenderer {
       const x = ball.prevX + (ball.x - ball.prevX) * alpha;
       const y = ball.prevY + (ball.y - ball.prevY) * alpha;
       if (Math.hypot(mesh.position.x - x, mesh.position.y - y) > 10) this.trail.reset(x, y);
-      mesh.position.set(x, y, ball.r);
+      const targetZ = ball.layer === LAYER_RAMP ? this.ramp.heightAt(x, y) + ball.r : ball.r;
+      const z = (mesh.userData.z ?? targetZ) + (targetZ - (mesh.userData.z ?? targetZ)) * Math.min(1, dt * 25);
+      mesh.userData.z = z;
+      mesh.position.set(x, y, z);
       const speed = Math.hypot(ball.vx, ball.vy);
       const k = 700;
       this.squashVelocity += (-k * this.squash - 2 * 0.3 * Math.sqrt(k) * this.squashVelocity) * dt;
@@ -203,8 +220,9 @@ export class TableRenderer {
       const along = Math.max(0.68, 1 + Math.min(0.25, speed / 1200) + this.squash);
       const across = 1 / Math.sqrt(along);
       mesh.rotation.set(0, 0, Math.atan2(ball.vy, ball.vx));
-      mesh.scale.set(ball.r * along, ball.r * across, ball.r * across);
-      if (i === 0) this.trail.update(x, y, 0.3, speed);
+      const lift = 1 + (z - ball.r) * 0.035;
+      mesh.scale.set(ball.r * along * lift, ball.r * across * lift, ball.r * across * lift);
+      if (i === 0) this.trail.update(x, y, z - ball.r + 0.3, speed);
     }
     this.trail.mesh.visible = balls.length > 0;
   }
