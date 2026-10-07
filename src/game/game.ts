@@ -1,5 +1,5 @@
 import type { PhysicsParams } from "../physics/params";
-import { type Flipper, type PhysicsEvent, type Segment, World } from "../physics/world";
+import { type Flipper, LAYER_FLOOR, type PhysicsEvent, type Segment, World } from "../physics/world";
 import { BALL_RADIUS, DRAIN_Y, PLAYFIELD_WIDTH, SHOOTER_X, type TableLayout, createLayout } from "./table";
 
 export interface ScoreStorage {
@@ -19,6 +19,8 @@ export type GameEventKind =
   | "rollover"
   | "lanes"
   | "spin"
+  | "rampEnter"
+  | "ramp"
   | "launch"
   | "save"
   | "drain"
@@ -43,6 +45,7 @@ const TILT_DECAY = 1.5;
 const SPINNER_GAIN = 0.5;
 const SPINNER_DECAY = 1.5;
 const SPINNER_POINTS_PER_TURN = 25;
+const RAMP_COMBO_SECONDS = 4;
 
 const SCORES = {
   bumper: 100,
@@ -51,6 +54,7 @@ const SCORES = {
   bank: 5000,
   rollover: 200,
   lanes: 1000,
+  ramp: 2500,
 };
 
 export class Game {
@@ -67,6 +71,8 @@ export class Game {
   private spinnerVelocity = 0;
   private ballSaveTime = 0;
   private exitedShooterLane = false;
+  private rampCombo = 0;
+  private rampComboTime = 0;
   private tiltMeter = 0;
   private targetResetTime = 0;
   private readonly targets: Segment[];
@@ -81,7 +87,9 @@ export class Game {
     this.highScore = storage.load();
     this.world = new World(params);
     const { layout, world } = this;
-    for (const def of [...layout.walls, ...layout.slings]) world.addSegment(def);
+    for (const def of [...layout.walls, ...layout.slings, ...layout.ramp.rails]) world.addSegment(def);
+    world.addLayerGate(layout.ramp.entry);
+    world.addLayerGate(layout.ramp.exit);
     this.targets = layout.targets.map((def) => world.addSegment(def));
     for (const def of layout.bumpers) world.addBumper(def);
     this.leftFlipper = world.addFlipper(layout.flippers.left);
@@ -155,6 +163,7 @@ export class Game {
     this.world.step(dt);
     for (const event of this.world.drainEvents()) this.handle(event);
     this.ballSaveTime = Math.max(0, this.ballSaveTime - dt);
+    this.rampComboTime = Math.max(0, this.rampComboTime - dt);
     this.tiltMeter = Math.max(0, this.tiltMeter - TILT_DECAY * dt);
     this.stepSpinner(dt);
     this.stepTargets(dt);
@@ -173,6 +182,11 @@ export class Game {
 
   private handle(event: PhysicsEvent): void {
     const { id, x, y, speed } = event;
+    if (event.type === "gate") {
+      if (id === "ramp-entry" && event.layer !== LAYER_FLOOR) this.emit("rampEnter", x, y, speed);
+      if (id === "ramp-exit") this.completeRamp(x, y);
+      return;
+    }
     if (event.type === "sensor") {
       if (id === "spinner") {
         this.spinnerVelocity += speed * SPINNER_GAIN;
@@ -198,6 +212,13 @@ export class Game {
     } else {
       this.emit("wall", x, y, speed, id);
     }
+  }
+
+  private completeRamp(x: number, y: number): void {
+    this.rampCombo = this.rampComboTime > 0 ? this.rampCombo + 1 : 1;
+    this.rampComboTime = RAMP_COMBO_SECONDS;
+    this.addScore(SCORES.ramp * this.rampCombo);
+    this.emit("ramp", x, y, this.rampCombo);
   }
 
   private dropTarget(id: string, x: number, y: number, speed: number): void {

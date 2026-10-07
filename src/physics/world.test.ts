@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createParams } from "./params";
-import { World, type FlipperDef } from "./world";
+import { LAYER_FLOOR, LAYER_RAMP, World, type FlipperDef } from "./world";
 
 const DT = 1 / 960;
 
@@ -192,6 +192,89 @@ describe("World", () => {
       const ball = world.spawnBall(25, 40);
       world.nudge(10, 5);
       expect([ball.vx, ball.vy]).toEqual([10, 5]);
+    });
+  });
+
+  describe("レイヤー", () => {
+    const noGravity = () => {
+      const params = createParams();
+      params.gravity = 0;
+      return new World(params);
+    };
+
+    it("別レイヤーの壁はすり抜ける", () => {
+      const world = noGravity();
+      world.addSegment({ id: "rail", ax: 0, ay: 0, bx: 50, by: 0, layers: LAYER_RAMP });
+      const ball = world.spawnBall(25, 5);
+      ball.vy = -100;
+      run(world, 0.3);
+      expect(ball.y).toBeLessThan(0);
+    });
+
+    it("両レイヤーの壁はランプ上のボールにも当たる", () => {
+      const world = noGravity();
+      world.addSegment({ id: "rail", ax: 0, ay: 0, bx: 50, by: 0, layers: LAYER_FLOOR | LAYER_RAMP });
+      const ball = world.spawnBall(25, 5);
+      ball.layer = LAYER_RAMP;
+      ball.vy = -100;
+      run(world, 0.3);
+      expect(ball.y).toBeGreaterThan(0);
+    });
+
+    it("ランプ上のボールはバンパーに当たらない", () => {
+      const world = noGravity();
+      world.addBumper({ id: "pop", x: 25, y: 50, r: 2.5, kick: 100 });
+      const ball = world.spawnBall(25, 60);
+      ball.layer = LAYER_RAMP;
+      ball.vy = -50;
+      run(world, 0.5);
+      expect(ball.y).toBeLessThan(40);
+    });
+
+    it("ゲートを法線方向に横切ると移り先のレイヤーに移る", () => {
+      const world = noGravity();
+      world.addLayerGate({ id: "entry", ax: 0, ay: 0, bx: 50, by: 0, from: LAYER_FLOOR, to: LAYER_RAMP, reversible: true });
+      const ball = world.spawnBall(25, -3);
+      ball.vy = 100;
+      run(world, 0.1);
+      expect(ball.layer).toBe(LAYER_RAMP);
+    });
+
+    it("戻れるゲートを逆向きに横切ると元のレイヤーに戻る", () => {
+      const world = noGravity();
+      world.addLayerGate({ id: "entry", ax: 0, ay: 0, bx: 50, by: 0, from: LAYER_FLOOR, to: LAYER_RAMP, reversible: true });
+      const ball = world.spawnBall(25, 3);
+      ball.layer = LAYER_RAMP;
+      ball.vy = -100;
+      run(world, 0.1);
+      expect(ball.layer).toBe(LAYER_FLOOR);
+    });
+
+    it("戻れないゲートは逆向きに横切ってもレイヤーが変わらない", () => {
+      const world = noGravity();
+      world.addLayerGate({ id: "exit", ax: 0, ay: 0, bx: 50, by: 0, from: LAYER_RAMP, to: LAYER_FLOOR, reversible: false });
+      const ball = world.spawnBall(25, 3);
+      ball.vy = -100;
+      run(world, 0.1);
+      expect(ball.layer).toBe(LAYER_FLOOR);
+    });
+
+    it("移り元のレイヤーにいないボールはゲートを横切っても移らない", () => {
+      const world = noGravity();
+      world.addLayerGate({ id: "exit", ax: 0, ay: 0, bx: 50, by: 0, from: LAYER_RAMP, to: LAYER_FLOOR, reversible: false });
+      const ball = world.spawnBall(25, -3);
+      ball.vy = 100;
+      run(world, 0.1);
+      expect(world.drainEvents().filter((e) => e.type === "gate")).toEqual([]);
+    });
+
+    it("レイヤーが移ったときにイベントを出す", () => {
+      const world = noGravity();
+      world.addLayerGate({ id: "entry", ax: 0, ay: 0, bx: 50, by: 0, from: LAYER_FLOOR, to: LAYER_RAMP, reversible: true });
+      const ball = world.spawnBall(25, -3);
+      ball.vy = 100;
+      run(world, 0.1);
+      expect(world.drainEvents().filter((e) => e.type === "gate").map((e) => e.id)).toEqual(["entry"]);
     });
   });
 });

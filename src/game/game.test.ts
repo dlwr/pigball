@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createParams } from "../physics/params";
-import { Game, type ScoreStorage } from "./game";
+import { LAYER_FLOOR } from "../physics/world";
+import { Game, type GameEvent, type ScoreStorage } from "./game";
 import { DRAIN_Y, SHOOTER_X } from "./table";
 
 const DT = 1 / 960;
@@ -262,6 +263,67 @@ describe("Game", () => {
     place(game, 25, 40);
     run(game, 2);
     expect(game.score).toBeGreaterThan(100);
+  });
+
+  describe("ランプ", () => {
+    const shootRamp = (game: Game, speed: number) => {
+      const [[x0, y0], [x1, y1]] = game.layout.ramp.path;
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      const [tx, ty] = [(x1 - x0) / len, (y1 - y0) / len];
+      place(game, x0 - tx * 3, y0 - ty * 3, tx * speed, ty * speed);
+    };
+
+    const runCollecting = (game: Game, seconds: number) => {
+      const events: GameEvent[] = [];
+      const positions: [number, number][] = [];
+      for (let i = 0; i < Math.round(seconds / DT); i++) {
+        game.step(DT);
+        for (const event of game.drainEvents()) {
+          events.push(event);
+          if (event.kind === "ramp") positions.push([ball(game).x, ball(game).y]);
+        }
+      }
+      return { events, positions };
+    };
+
+    it("登りきると得点が入る", () => {
+      const game = newGame();
+      shootRamp(game, 280);
+      runCollecting(game, 3);
+      expect(game.score).toBeGreaterThanOrEqual(2500);
+    });
+
+    it("登りきったボールは左のインレーンに落ちてくる", () => {
+      const game = newGame();
+      shootRamp(game, 280);
+      const { positions } = runCollecting(game, 3);
+      expect(positions[0][0]).toBeLessThan(9);
+    });
+
+    it("登りきったボールは床のレイヤーに戻る", () => {
+      const game = newGame();
+      shootRamp(game, 280);
+      runCollecting(game, 3);
+      expect(ball(game)?.layer ?? LAYER_FLOOR).toBe(LAYER_FLOOR);
+    });
+
+    it("勢いが足りないと転がり戻って床のレイヤーに戻る", () => {
+      const game = newGame();
+      shootRamp(game, 110);
+      const { events } = runCollecting(game, 2);
+      expect([events.some((e) => e.kind === "ramp"), ball(game)?.layer ?? LAYER_FLOOR]).toEqual([false, LAYER_FLOOR]);
+    });
+
+    it("続けて通すとコンボで得点が増える", () => {
+      const game = newGame();
+      shootRamp(game, 280);
+      runCollecting(game, 1.6);
+      const first = game.score;
+      shootRamp(game, 280);
+      runCollecting(game, 1.6);
+      const gained = game.score - first;
+      expect(gained >= 5000 && gained < 7500).toBe(true);
+    });
   });
 
   describe("チルト", () => {

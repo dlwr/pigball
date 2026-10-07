@@ -23,6 +23,7 @@ const stats = { fps: 0, steps: 0, frameMs: 0 };
 
 if (new URLSearchParams(location.search).has("debug")) {
   void import("./debug/panel").then(({ mountDebugPanel }) => mountDebugPanel(params, stats));
+  Object.assign(window, { game });
 }
 
 const flipperState = { left: false, right: false };
@@ -49,6 +50,7 @@ let hitStop = 0;
 const handle = (event: GameEvent) => {
   sfx.play(event);
   renderer.onEvent(event);
+  hud.onEvent(event, game);
   const heavy = (event.kind === "bumper" && event.speed > 100) || (event.kind === "flipper" && event.speed > 220) || event.kind === "bank";
   if (heavy) hitStop = Math.max(hitStop, HIT_STOP_SECONDS);
 };

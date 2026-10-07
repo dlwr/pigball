@@ -1,5 +1,8 @@
 import type { PhysicsParams } from "./params";
 
+export const LAYER_FLOOR = 1;
+export const LAYER_RAMP = 2;
+
 export interface Ball {
   x: number;
   y: number;
@@ -8,6 +11,7 @@ export interface Ball {
   prevX: number;
   prevY: number;
   r: number;
+  layer: number;
 }
 
 export type SegmentKind = "wall" | "sling" | "target";
@@ -20,6 +24,7 @@ export interface SegmentDef {
   by: number;
   kind?: SegmentKind;
   oneWay?: boolean;
+  layers?: number;
 }
 
 export interface Segment extends Required<SegmentDef> {
@@ -76,9 +81,21 @@ export interface SensorDef {
   by: number;
 }
 
+export interface LayerGateDef {
+  id: string;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  from: number;
+  to: number;
+  reversible: boolean;
+}
+
 export type PhysicsEvent =
   | { type: "contact"; id: string; speed: number; x: number; y: number }
-  | { type: "sensor"; id: string; speed: number; x: number; y: number };
+  | { type: "sensor"; id: string; speed: number; x: number; y: number }
+  | { type: "gate"; id: string; layer: number; speed: number; x: number; y: number };
 
 const CONTACT_EVENT_SPEED = 4;
 
@@ -88,13 +105,14 @@ export class World {
   readonly bumpers: BumperDef[] = [];
   readonly flippers: Flipper[] = [];
   readonly sensors: SensorDef[] = [];
+  readonly layerGates: LayerGateDef[] = [];
   plunger: Plunger | null = null;
   private events: PhysicsEvent[] = [];
 
   constructor(readonly params: PhysicsParams) {}
 
   spawnBall(x: number, y: number, r = 1.35): Ball {
-    const ball = { x, y, vx: 0, vy: 0, prevX: x, prevY: y, r };
+    const ball = { x, y, vx: 0, vy: 0, prevX: x, prevY: y, r, layer: LAYER_FLOOR };
     this.balls.push(ball);
     return ball;
   }
@@ -105,7 +123,7 @@ export class World {
   }
 
   addSegment(def: SegmentDef): Segment {
-    const seg = { kind: "wall" as const, oneWay: false, ...def, enabled: true };
+    const seg = { kind: "wall" as const, oneWay: false, layers: LAYER_FLOOR, ...def, enabled: true };
     this.segments.push(seg);
     return seg;
   }
@@ -128,6 +146,11 @@ export class World {
 
   addSensor(def: SensorDef): SensorDef {
     this.sensors.push(def);
+    return def;
+  }
+
+  addLayerGate(def: LayerGateDef): LayerGateDef {
+    this.layerGates.push(def);
     return def;
   }
 
@@ -192,12 +215,25 @@ export class World {
     ball.y += ball.vy * dt;
 
     for (const seg of this.segments) {
-      if (seg.enabled) this.collideSegment(ball, seg);
+      if (seg.enabled && seg.layers & ball.layer) this.collideSegment(ball, seg);
     }
+    for (const gate of this.layerGates) this.checkLayerGate(ball, gate);
+    if (ball.layer !== LAYER_FLOOR) return;
     for (const bumper of this.bumpers) this.collideBumper(ball, bumper);
     for (const flipper of this.flippers) this.collideFlipper(ball, flipper);
     if (this.plunger) this.collidePlunger(ball, this.plunger);
     for (const sensor of this.sensors) this.checkSensor(ball, sensor);
+  }
+
+  private checkLayerGate(ball: Ball, gate: LayerGateDef): void {
+    if (!segmentsCross(ball.prevX, ball.prevY, ball.x, ball.y, gate.ax, gate.ay, gate.bx, gate.by)) return;
+    const forward = (ball.x - ball.prevX) * -(gate.by - gate.ay) + (ball.y - ball.prevY) * (gate.bx - gate.ax) > 0;
+    let layer: number;
+    if (forward && ball.layer === gate.from) layer = gate.to;
+    else if (!forward && gate.reversible && ball.layer === gate.to) layer = gate.from;
+    else return;
+    ball.layer = layer;
+    this.events.push({ type: "gate", id: gate.id, layer, speed: Math.hypot(ball.vx, ball.vy), x: ball.x, y: ball.y });
   }
 
   private collideSegment(ball: Ball, seg: Segment): void {
