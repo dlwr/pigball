@@ -12,6 +12,7 @@ export type GameState = "ready" | "playing" | "over";
 export type GameEventKind =
   | "bumper"
   | "sling"
+  | "rotor"
   | "wall"
   | "flipper"
   | "target"
@@ -68,6 +69,7 @@ const AUTO_LAUNCH_SPEED = 180;
 const SCORES = {
   bumper: 100,
   sling: 10,
+  rotor: 50,
   target: 500,
   bank: 5000,
   rollover: 200,
@@ -90,7 +92,7 @@ interface HistoryEntry {
   replayable: boolean;
 }
 
-const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target)/.test(event.id);
+const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target|rotor)/.test(event.id);
 
 export interface GameStats {
   ramps: number;
@@ -148,6 +150,7 @@ export class Game {
     world.addLayerGate(layout.ramp.exit);
     this.targets = layout.targets.map((def) => world.addSegment(def));
     for (const def of layout.bumpers) world.addBumper(def);
+    world.addRotor(layout.rotor);
     this.leftFlipper = world.addFlipper(layout.flippers.left);
     this.rightFlipper = world.addFlipper(layout.flippers.right);
     world.setPlunger(layout.plunger);
@@ -344,6 +347,9 @@ export class Game {
       this.addScore(SCORES.bumper);
       this.bonus += BONUS.bumper;
       this.emit("bumper", x, y, speed, id);
+    } else if (id === "rotor") {
+      this.addScore(SCORES.rotor);
+      this.emit("rotor", x, y, speed, id);
     } else if (id.startsWith("sling")) {
       this.addScore(SCORES.sling);
       this.emit("sling", x, y, speed, id);
