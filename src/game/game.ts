@@ -42,7 +42,8 @@ export type GameEventKind =
   | "bonus"
   | "tilt"
   | "over"
-  | "stageClear";
+  | "stageClear"
+  | "fever";
 
 export interface GameEvent {
   kind: GameEventKind;
@@ -68,6 +69,8 @@ const KICKBACK_SPEED = 135;
 const SPINS_FOR_RIGHT_KICKBACK = 20;
 export const RAMPS_FOR_MULTIBALL = 3;
 const INPUT_REWIND_SECONDS = 0.024;
+export const FEVER_SECONDS = 15;
+const FEVER_MULTIPLIER = 2;
 const PIGGY_HITS_TO_BREAK = 5;
 const PIGGY_RESPAWN_SECONDS = 8;
 const NAVEL_HOLD_SECONDS = 1;
@@ -157,6 +160,7 @@ export class Game {
   inMultiball = false;
   piggyHits = 0;
   piggyHitsToBreak = PIGGY_HITS_TO_BREAK;
+  feverTime = 0;
   rampsTowardMultiball = 0;
   rampsTowardExtraBall = 0;
   kickbacksLit: Record<Side, boolean> = { left: true, right: false };
@@ -173,6 +177,7 @@ export class Game {
   private spinsTowardRightKickback = 0;
   private pendingLaunches = 0;
   private piggyRespawnTime = 0;
+  private targetReached = false;
   private navelBall: Ball | null = null;
   private navelTime = 0;
   private navelCooldown = 0;
@@ -214,6 +219,10 @@ export class Game {
     for (const def of [...layout.rollovers, layout.spinner, layout.shooterExit, layout.kickbacks.left, layout.kickbacks.right]) world.addSensor(def);
     this.serveBall();
     for (const modifier of modifiers) modifier.start?.(this);
+  }
+
+  get inFever(): boolean {
+    return this.feverTime > 0;
   }
 
   get ballSaveActive(): boolean {
@@ -271,7 +280,7 @@ export class Game {
 
   private award(kind: ScoreKind, points: number): void {
     const base = this.rules.modifiers.reduce((p, m) => (m.score ? m.score(kind, p, this) : p), points);
-    this.score += base * this.multiplier;
+    this.score += base * this.multiplier * (this.inFever ? FEVER_MULTIPLIER : 1);
   }
 
   restart(): void {
@@ -324,16 +333,28 @@ export class Game {
     this.stepAutoLaunch(dt);
     if (this.inMultiball && this.ballsInPlay <= 1) this.inMultiball = false;
     this.checkTarget();
+    this.stepFever(dt);
   }
 
   private checkTarget(): void {
     const { target } = this.rules;
-    if (target === null || this.score < target || this.state === "over") return;
+    if (target === null || this.targetReached || this.score < target || this.state === "over") return;
+    this.targetReached = true;
+    this.feverTime = FEVER_SECONDS;
+    this.emit("fever", 23, 50, FEVER_SECONDS);
+  }
+
+  private stepFever(dt: number): void {
+    if (!this.inFever) return;
+    this.feverTime = Math.max(0, this.feverTime - dt);
+    if (this.inFever) return;
     this.state = "cleared";
     this.leftFlipper.pressed = false;
     this.rightFlipper.pressed = false;
     this.emit("stageClear", 23, 50, 1);
   }
+
+
 
   private record(entry: HistoryEntry): void {
     this.history.push(entry);
@@ -625,6 +646,13 @@ export class Game {
     for (const ball of [...this.world.balls]) {
       if (ball.y >= DRAIN_Y) continue;
       this.world.removeBall(ball);
+      if (this.inFever && this.ballsInPlay === 0) {
+        this.emit("save", ball.x, 0, 1);
+        this.state = "ready";
+        this.placeBallInShooterLane();
+        continue;
+      }
+      if (this.inFever) continue;
       if (this.inMultiball && this.ballSaveActive && !this.tilted) {
         this.pendingLaunches++;
         this.emit("save", ball.x, 0, 1);

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CHARMS } from "./charms";
 import { Run, STAGES } from "./run";
 
-const clearStage = (run: Run, ballsLeft = 1) => run.finishStage({ cleared: true, ballsLeft });
+const clearStage = (run: Run, ballsLeft = 1, score = run.stageDef.target) => run.finishStage({ cleared: true, ballsLeft, score });
 
 const richRun = (seed = 1) => {
   const run = new Run(seed);
@@ -46,9 +46,25 @@ describe("ラン", () => {
       expect(b.truffles).toBeGreaterThan(a.truffles);
     });
 
+    it("目標を超えた分だけトリュフが増える", () => {
+      const a = new Run(1);
+      clearStage(a, 1, a.stageDef.target);
+      const b = new Run(1);
+      clearStage(b, 1, b.stageDef.target * 1.5);
+      expect(b.truffles - a.truffles).toBe(5);
+    });
+
+    it("超えた分のトリュフには上限がある", () => {
+      const a = new Run(1);
+      clearStage(a, 1, a.stageDef.target);
+      const b = new Run(1);
+      clearStage(b, 1, b.stageDef.target * 100);
+      expect(b.truffles - a.truffles).toBe(15);
+    });
+
     it("届かなかったらランは終わる", () => {
       const run = new Run(1);
-      run.finishStage({ cleared: false, ballsLeft: 0 });
+      run.finishStage({ cleared: false, ballsLeft: 0, score: 0 });
       expect(run.phase).toBe("lost");
     });
 

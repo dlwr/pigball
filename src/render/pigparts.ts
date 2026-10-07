@@ -456,7 +456,7 @@ export const createMudPit = (x: number, y: number, r: number): MudPit => {
     if (i === 0) outline.moveTo(px, py);
     else outline.lineTo(px, py);
   }
-  const puddle = new THREE.Mesh(new THREE.ShapeGeometry(outline), new THREE.MeshStandardMaterial({ color: PALETTE.mud, roughness: 0.4, metalness: 0, envMapIntensity: 0.3 }));
+  const puddle = new THREE.Mesh(new THREE.ShapeGeometry(outline), new THREE.MeshStandardMaterial({ color: PALETTE.mud, roughness: 0.55, metalness: 0, envMapIntensity: 0.05 }));
   puddle.position.z = 0.03;
   puddle.receiveShadow = true;
   const rim = new THREE.Mesh(new THREE.ShapeGeometry(outline), standard(PALETTE.mudDark, 0.9));
