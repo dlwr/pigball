@@ -317,3 +317,24 @@ export const createRotor = (arms: number, armLength: number, armRadius: number):
     },
   };
 };
+
+export const createBelly = (seg: SegmentDef, inward: number): Part => {
+  const length = Math.hypot(seg.bx - seg.ax, seg.by - seg.ay);
+  const material = standard(PALETTE.pigSkin, 0.55, PALETTE.pigSkin, 0.1);
+  const group = new THREE.Group();
+  const belly = shadowed(new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20), material));
+  belly.scale.set(0.9, length / 2, 1.2);
+  const crease = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 6, 16), standard(PALETTE.gum, 0.7));
+  crease.position.set(inward * 0.85, 0, 0.6);
+  crease.rotation.y = inward * 0.9;
+  group.add(belly, crease);
+  group.position.set((seg.ax + seg.bx) / 2 - inward * 0.3, (seg.ay + seg.by) / 2, 0.6);
+  return {
+    object: group,
+    material,
+    react(value) {
+      belly.scale.x = 0.9 - value * 0.35 + Math.sin(value * Math.PI * 4) * value * 0.15;
+      belly.scale.y = length / 2 + value * 0.6;
+    },
+  };
+};

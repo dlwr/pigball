@@ -10,7 +10,7 @@ import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { fitTiltedCamera } from "./camera";
 import { Piglet } from "./piglet";
-import { GooglyEye, type Mouth, type Rotor as RotorView, type Snout, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
+import { GooglyEye, type Mouth, type Rotor as RotorView, type Snout, createBelly, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -92,6 +92,7 @@ export class TableRenderer {
     for (const seg of game.layout.walls) this.addWall(seg, PALETTE.wall);
     this.addSlings();
     this.addBumpers();
+    this.addBellies();
     this.rotor = this.addRotor();
     this.addTargets();
     this.addLanes();
@@ -157,6 +158,11 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 18, 40, new THREE.Color(PALETTE.pigSnout));
         this.shake.add(0.15);
         this.impact(event.speed);
+        break;
+      case "belly":
+        this.flash(event.id);
+        this.sparks.burst(event.x, event.y, 8, 25, new THREE.Color(PALETTE.pigSkin));
+        this.jiggleEyes(event.x, event.y, 12);
         break;
       case "rotor":
         this.rotor.poke(Math.min(12, event.speed / 12));
@@ -440,6 +446,14 @@ export class TableRenderer {
       this.addEye(bumper.x - bumper.r * 0.45, bumper.y + bumper.r + 0.8, 1.05);
       this.addEye(bumper.x + bumper.r * 0.5, bumper.y + bumper.r + 0.6, 0.8);
       this.thirdEyes.push(this.addEye(bumper.x + bumper.r * 0.05, bumper.y + bumper.r + 1.9, 0.65));
+    }
+  }
+
+  private addBellies(): void {
+    for (const seg of this.game.layout.bellies) {
+      const belly = createBelly(seg, seg.ax < TABLE_WIDTH / 2 ? 1 : -1);
+      this.scene.add(belly.object);
+      this.glows.set(seg.id, { material: belly.material, base: 0.1, boost: 1.2, value: 0, react: belly.react });
     }
   }
 
