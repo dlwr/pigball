@@ -101,7 +101,7 @@ const settleStage = (dt: number) => {
   if (settleDelay < SETTLE_DELAY_SECONDS) return;
   stageSettled = true;
   const current = run;
-  current.finishStage({ cleared: game.state === "cleared", ballsLeft: game.ballsLeft });
+  current.finishStage({ cleared: game.state === "cleared", ballsLeft: game.ballsLeft, score: game.score });
   saveRun();
   hud.setRun(current);
   const score = game.score;
@@ -185,7 +185,7 @@ const frame = (now: number) => {
   stats.steps = steps;
   renderer.render(alpha, dt);
   hud.update(game, dt);
-  music.update(screens.open ? levelFor("ready", false) : levelFor(game.state, game.inMultiball));
+  music.update(screens.open ? levelFor("ready", false) : levelFor(game.state, game.inMultiball || game.inFever));
   frameId = requestAnimationFrame(frame);
   stats.frameMs = Math.round((stats.frameMs * 0.9 + (performance.now() - started) * 0.1) * 100) / 100;
 };

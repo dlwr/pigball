@@ -24,12 +24,15 @@ export const MAX_CHARMS = 5;
 const SHOP_SIZE = 3;
 const BASE_REWARD = 3;
 const REWARD_PER_SPARE_BALL = 2;
+const OVERKILL_STEP = 0.1;
+const MAX_OVERKILL_REWARD = 15;
 
 export type RunPhase = "stage" | "shop" | "won" | "lost";
 
 export interface StageResult {
   cleared: boolean;
   ballsLeft: number;
+  score: number;
 }
 
 export interface Shop {
@@ -59,6 +62,7 @@ export class Run {
   charms: string[] = [];
   shop: Shop = { offers: [], rerollCost: 1 };
   lastReward = 0;
+  lastOverkill = 0;
   private curseId: string | null = null;
   private usedBossCurses: string[] = [];
   private readonly rng: Rng;
@@ -88,7 +92,9 @@ export class Run {
       this.phase = "lost";
       return;
     }
-    this.lastReward = BASE_REWARD + Math.floor(this.stage / 2) + Math.max(0, result.ballsLeft - 1) * REWARD_PER_SPARE_BALL;
+    const { target } = this.stageDef;
+    this.lastOverkill = Math.min(MAX_OVERKILL_REWARD, Math.max(0, Math.floor((result.score - target) / (target * OVERKILL_STEP) + 1e-9)));
+    this.lastReward = BASE_REWARD + Math.floor(this.stage / 2) + Math.max(0, result.ballsLeft - 1) * REWARD_PER_SPARE_BALL + this.lastOverkill;
     this.truffles += this.lastReward;
     if (this.stage === STAGES.length - 1) {
       this.phase = "won";
