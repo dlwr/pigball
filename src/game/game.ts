@@ -90,12 +90,23 @@ interface HistoryEntry {
 
 const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target)/.test(event.id);
 
+export interface GameStats {
+  ramps: number;
+  banks: number;
+  jackpots: number;
+  skillShots: number;
+}
+
+const emptyStats = (): GameStats => ({ ramps: 0, banks: 0, jackpots: 0, skillShots: 0 });
+
 export class Game {
   readonly world: World;
   readonly layout: TableLayout = createLayout();
   state: GameState = "ready";
   score = 0;
   highScore: number;
+  newHighScore = false;
+  stats = emptyStats();
   ballsLeft = BALLS_PER_GAME;
   extraBalls = 0;
   bonus = 0;
@@ -111,7 +122,6 @@ export class Game {
   private exitedShooterLane = false;
   private rampCombo = 0;
   private rampComboTime = 0;
-  private rampsThisGame = 0;
   private pendingLaunches = 0;
   private autoLaunchTime = 0;
   private tiltMeter = 0;
@@ -198,7 +208,8 @@ export class Game {
     this.score = 0;
     this.ballsLeft = BALLS_PER_GAME;
     this.extraBalls = 0;
-    this.rampsThisGame = 0;
+    this.stats = emptyStats();
+    this.newHighScore = false;
     this.inMultiball = false;
     this.kickbackLit = true;
     this.pendingLaunches = 0;
@@ -357,11 +368,12 @@ export class Game {
     this.emit("ramp", x, y, this.rampCombo);
     if (this.inMultiball) {
       this.addScore(SCORES.jackpot);
+      this.stats.jackpots++;
       this.emit("jackpot", x, y, 1);
     } else if (this.rampCombo >= MULTIBALL_COMBO && this.state === "playing") {
       this.startMultiball(x, y);
     }
-    if (++this.rampsThisGame === RAMPS_FOR_EXTRA_BALL) {
+    if (++this.stats.ramps === RAMPS_FOR_EXTRA_BALL) {
       this.extraBalls++;
       this.emit("extraBall", x, y, 1);
     }
@@ -376,6 +388,7 @@ export class Game {
     this.emit("target", x, y, speed, id);
     if (this.targets.every((t) => !t.enabled)) {
       this.addScore(SCORES.bank);
+      this.stats.banks++;
       this.targetResetTime = TARGET_RESET_SECONDS;
       this.kickbackLit = true;
       this.emit("bank", x, y, speed);
@@ -392,6 +405,7 @@ export class Game {
     if (this.skillShotLit) {
       this.skillShotLit = false;
       this.addScore(SCORES.skillShot);
+      this.stats.skillShots++;
       this.emit("skill", x, y, speed);
     }
     this.lightLane(index, x, y, speed);
@@ -474,6 +488,7 @@ export class Game {
       this.leftFlipper.pressed = false;
       this.rightFlipper.pressed = false;
       if (this.score > this.highScore) {
+        this.newHighScore = true;
         this.highScore = this.score;
         this.storage.save(this.score);
       }

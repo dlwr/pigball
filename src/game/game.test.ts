@@ -708,6 +708,70 @@ describe("Game", () => {
     });
   });
 
+  describe("リザルト", () => {
+    const knockDownBank = (game: Game) => {
+      for (const target of game.layout.targets) {
+        place(game, target.ax + 2, (target.ay + target.by) / 2, -60, 0);
+        run(game, 0.05);
+      }
+    };
+
+    const endGame = (game: Game) => {
+      drain(game);
+      drain(game);
+      drain(game);
+    };
+
+    it("ランプを通した回数を数える", () => {
+      const game = newGame();
+      completeRampsWithoutCombo(game, 2);
+      expect(game.stats.ramps).toBe(2);
+    });
+
+    it("ターゲットバンクを倒しきった回数を数える", () => {
+      const game = newGame();
+      knockDownBank(game);
+      expect(game.stats.banks).toBe(1);
+    });
+
+    it("ジャックポットの回数を数える", () => {
+      const game = newGame();
+      completeRamps(game, 4);
+      expect(game.stats.jackpots).toBe(1);
+    });
+
+    it("スキルショットの回数を数える", () => {
+      const game = newGame();
+      const lane = game.layout.rollovers[1];
+      place(game, (lane.ax + lane.bx) / 2, lane.ay + 1.5, 0, -40);
+      run(game, 0.05);
+      expect(game.stats.skillShots).toBe(1);
+    });
+
+    it("ハイスコアを超えて終わると新記録になる", () => {
+      const game = newGame(memoryStorage(100));
+      game.addScore(500);
+      endGame(game);
+      expect(game.newHighScore).toBe(true);
+    });
+
+    it("ハイスコアに届かずに終わると新記録にならない", () => {
+      const game = newGame(memoryStorage(1000));
+      game.addScore(500);
+      endGame(game);
+      expect(game.newHighScore).toBe(false);
+    });
+
+    it("リスタートすると回数と新記録が戻る", () => {
+      const game = newGame(memoryStorage(100));
+      completeRampsWithoutCombo(game, 1);
+      game.addScore(500);
+      endGame(game);
+      game.restart();
+      expect([game.stats.ramps, game.newHighScore]).toEqual([0, false]);
+    });
+  });
+
   describe("チルト", () => {
     it("短時間に揺らしすぎるとフリッパーが効かなくなる", () => {
       const game = newGame();
