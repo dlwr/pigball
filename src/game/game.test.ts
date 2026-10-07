@@ -202,6 +202,48 @@ describe("Game", () => {
     expect([game.score, game.ballsLeft, game.state]).toEqual([0, 3, "ready"]);
   });
 
+  describe("貯金箱", () => {
+    const hitPiggy = (game: Game) => {
+      const piggy = game.world.movers[0];
+      place(game, piggy.x, piggy.y - piggy.r - ball(game).r - 2, 0, 80);
+      run(game, 0.06);
+      place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+      run(game, 0.05);
+    };
+
+    it("当てると250点", () => {
+      const game = newGame();
+      hitPiggy(game);
+      expect(game.score).toBe(250);
+    });
+
+    it("当てた回数を数える", () => {
+      const game = newGame();
+      hitPiggy(game);
+      hitPiggy(game);
+      expect(game.piggyHits).toBe(2);
+    });
+
+    it("5回当てると割れてボーナスが入る", () => {
+      const game = newGame();
+      for (let i = 0; i < 5; i++) hitPiggy(game);
+      expect(game.score).toBe(250 * 5 + 7500);
+    });
+
+    it("割れている間は当たらない", () => {
+      const game = newGame();
+      for (let i = 0; i < 5; i++) hitPiggy(game);
+      expect(game.world.movers[0].enabled).toBe(false);
+    });
+
+    it("割れて少しすると元に戻り、当てた回数も戻る", () => {
+      const game = newGame();
+      for (let i = 0; i < 5; i++) hitPiggy(game);
+      run(game, 8.5);
+      expect([game.world.movers[0].enabled, game.piggyHits]).toEqual([true, 0]);
+    });
+  });
+
   describe("へそ", () => {
     const dropIntoNavel = (game: Game) => {
       const { navel } = game.layout;
@@ -242,12 +284,12 @@ describe("Game", () => {
       game.setPlunger(true);
       run(game, 1.2);
       game.setPlunger(false);
-      run(game, 1.5);
+      for (let t = 0; t < 2 && !game.ballSaveActive; t += DT) game.step(DT);
       dropIntoNavel(game);
-      run(game, 0.5);
-      for (let t = 0; t < 6.4; t += DT) game.step(DT);
-      drain(game);
-      expect(game.ballsLeft).toBe(3);
+      while (ball(game).frozen) game.step(DT);
+      place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+      run(game, 7.4);
+      expect(game.ballSaveActive).toBe(true);
     });
 
     it("先に1個捕まえていると、2個目は入らずに通り過ぎる", () => {

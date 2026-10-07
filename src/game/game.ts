@@ -15,6 +15,9 @@ export type GameEventKind =
   | "rotor"
   | "belly"
   | "navelIn"
+  | "piggy"
+  | "piggyBreak"
+  | "piggyBack"
   | "navelOut"
   | "wall"
   | "flipper"
@@ -63,6 +66,8 @@ const KICKBACK_SPEED = 135;
 const SPINS_FOR_RIGHT_KICKBACK = 20;
 export const RAMPS_FOR_MULTIBALL = 3;
 const INPUT_REWIND_SECONDS = 0.024;
+const PIGGY_HITS_TO_BREAK = 5;
+const PIGGY_RESPAWN_SECONDS = 8;
 const NAVEL_HOLD_SECONDS = 1;
 const NAVEL_EJECT_SPEED = 70;
 const NAVEL_RECAPTURE_SECONDS = 0.6;
@@ -78,6 +83,8 @@ const SCORES = {
   rotor: 50,
   belly: 30,
   navel: 1000,
+  piggy: 250,
+  piggyBreak: 7500,
   target: 500,
   bank: 5000,
   rollover: 200,
@@ -100,7 +107,7 @@ interface HistoryEntry {
   replayable: boolean;
 }
 
-const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target|rotor|belly)/.test(event.id);
+const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target|rotor|belly|piggy)/.test(event.id);
 
 export interface GameStats {
   ramps: number;
@@ -123,6 +130,7 @@ export class Game {
   extraBalls = 0;
   bonus = 0;
   inMultiball = false;
+  piggyHits = 0;
   rampsTowardMultiball = 0;
   kickbacksLit: Record<Side, boolean> = { left: true, right: false };
   multiplier = 1;
@@ -137,6 +145,7 @@ export class Game {
   private rampComboTime = 0;
   private spinsTowardRightKickback = 0;
   private pendingLaunches = 0;
+  private piggyRespawnTime = 0;
   private navelBall: Ball | null = null;
   private navelTime = 0;
   private navelCooldown = 0;
@@ -163,6 +172,7 @@ export class Game {
     for (const def of layout.bumpers) world.addBumper(def);
     world.addRotor(layout.rotor);
     world.addHole(layout.navel);
+    world.addMover(layout.piggy);
     this.leftFlipper = world.addFlipper(layout.flippers.left);
     this.rightFlipper = world.addFlipper(layout.flippers.right);
     world.setPlunger(layout.plunger);
@@ -232,6 +242,9 @@ export class Game {
     this.inMultiball = false;
     this.navelBall = null;
     this.navelCooldown = 0;
+    this.piggyHits = 0;
+    this.piggyRespawnTime = 0;
+    this.world.movers[0].enabled = true;
     this.rampsTowardMultiball = 0;
     this.kickbacksLit = { left: true, right: false };
     this.spinsTowardRightKickback = 0;
@@ -258,6 +271,7 @@ export class Game {
     for (const event of events) this.handle(event);
     if (!this.navelBall) this.ballSaveTime = Math.max(0, this.ballSaveTime - dt);
     this.stepNavel(dt);
+    this.stepPiggy(dt);
     this.rampComboTime = Math.max(0, this.rampComboTime - dt);
     this.tiltMeter = Math.max(0, this.tiltMeter - TILT_DECAY * dt);
     this.stepSpinner(dt);
@@ -366,6 +380,8 @@ export class Game {
       this.addScore(SCORES.bumper);
       this.bonus += BONUS.bumper;
       this.emit("bumper", x, y, speed, id);
+    } else if (id === "piggy") {
+      this.hitPiggy(x, y, speed);
     } else if (id.startsWith("belly")) {
       this.addScore(SCORES.belly);
       this.emit("belly", x, y, speed, id);
@@ -384,6 +400,26 @@ export class Game {
       return;
     }
     this.skillShotLit = false;
+  }
+
+  private hitPiggy(x: number, y: number, speed: number): void {
+    this.addScore(SCORES.piggy);
+    this.emit("piggy", x, y, speed);
+    if (++this.piggyHits < PIGGY_HITS_TO_BREAK) return;
+    this.addScore(SCORES.piggyBreak);
+    this.world.movers[0].enabled = false;
+    this.piggyRespawnTime = PIGGY_RESPAWN_SECONDS;
+    this.emit("piggyBreak", this.world.movers[0].x, this.world.movers[0].y, 1);
+  }
+
+  private stepPiggy(dt: number): void {
+    if (this.piggyRespawnTime <= 0) return;
+    this.piggyRespawnTime -= dt;
+    if (this.piggyRespawnTime > 0) return;
+    this.world.movers[0].enabled = true;
+    this.piggyHits = 0;
+    const piggy = this.world.movers[0];
+    this.emit("piggyBack", piggy.x, piggy.y, 1);
   }
 
   get holdingInNavel(): boolean {
