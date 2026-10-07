@@ -38,6 +38,7 @@ export class Sfx {
 
   play(event: GameEvent): void {
     const s = Math.min(1, event.speed / 300);
+    this.voice(event, s);
     switch (event.kind) {
       case "bumper":
         if (!this.throttle("bumper", 0.04)) return;
@@ -124,6 +125,75 @@ export class Sfx {
       case "over":
         this.arpeggio([523, 415, 330, 262], 0.14, "triangle", 0.35);
         break;
+    }
+  }
+
+  private voice(event: GameEvent, s: number): void {
+    switch (event.kind) {
+      case "bumper":
+        if (this.throttle("squeal", 0.15)) this.oink(520 + Math.random() * 120, 0.09, 0.35, 1.6);
+        break;
+      case "flipper":
+      case "wall":
+        if (s > 0.6 && this.throttle("oink", 0.35)) this.oink(170 + s * 90, 0.12, 0.3 * s);
+        break;
+      case "launch":
+        this.oink(190, 0.16, 0.35);
+        break;
+      case "save":
+      case "shootAgain":
+        this.oink(260, 0.1, 0.3);
+        this.oink(320, 0.1, 0.3, 1, 0.14);
+        break;
+      case "multiball":
+        [200, 260, 330].forEach((pitch, i) => this.oink(pitch, 0.12, 0.3, 1, i * 0.11));
+        break;
+      case "drain":
+        this.oink(700, 0.55, 0.35, 1.8);
+        break;
+      case "over":
+        this.oink(120, 0.5, 0.35);
+        break;
+    }
+  }
+
+  private oink(pitch: number, duration: number, volume: number, squeal = 1, delay = 0): void {
+    const { ctx, master, noise } = this;
+    if (!ctx || !master || !noise || ctx.state !== "running" || volume <= 0) return;
+    const t = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(pitch * 0.85, t);
+    osc.frequency.linearRampToValueAtTime(pitch * (squeal > 1 ? 1.25 : 1.05), t + duration * 0.3);
+    osc.frequency.exponentialRampToValueAtTime(pitch * 0.7, t + duration);
+    const gurgle = ctx.createOscillator();
+    const gurgleDepth = ctx.createGain();
+    gurgle.frequency.value = 28 + Math.random() * 10;
+    gurgleDepth.gain.value = pitch * 0.18;
+    gurgle.connect(gurgleDepth).connect(osc.frequency);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(volume, t + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+    for (const [frequency, q] of [[650 * squeal, 5], [1700 * squeal, 7]]) {
+      const formant = ctx.createBiquadFilter();
+      formant.type = "bandpass";
+      formant.frequency.value = frequency;
+      formant.Q.value = q;
+      osc.connect(formant).connect(gain);
+    }
+    const breath = ctx.createBufferSource();
+    breath.buffer = noise;
+    const breathFilter = ctx.createBiquadFilter();
+    breathFilter.type = "bandpass";
+    breathFilter.frequency.value = 1200 * squeal;
+    const breathGain = ctx.createGain();
+    breathGain.gain.value = 0.25;
+    breath.connect(breathFilter).connect(breathGain).connect(gain);
+    gain.connect(master);
+    for (const node of [osc, gurgle, breath]) {
+      node.start(t);
+      node.stop(t + duration + 0.02);
     }
   }
 

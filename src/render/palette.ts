@@ -13,7 +13,11 @@ export const PALETTE = {
   flipperRubber: 0xff3b3b,
   spinner: 0xd7dde6,
   plunger: 0xb9c1cc,
-  ball: 0xe8ecf2,
+  pigSkin: 0xffa7bb,
+  pigSnout: 0xff8aa5,
+  pigNostril: 0x5b1f30,
+  pigBlush: 0xff5c8a,
+  pigTrail: 0xff9ec0,
   spark: 0xffb070,
   ramp: 0x6fd3ff,
 };
