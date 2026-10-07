@@ -1,4 +1,5 @@
 import type { ScoreStorage } from "./game/game";
+import type { RunData } from "./run/run";
 
 const KEY = "pigball:high-score";
 
@@ -32,4 +33,32 @@ export const musicPreference = {
       localStorage.setItem(MUSIC_KEY, enabled ? "on" : "off");
     } catch {}
   },
+};
+
+const RUN_KEY = "pigball:run";
+
+export const runStorage = {
+  load(): RunData | null {
+    try {
+      const data = JSON.parse(localStorage.getItem(RUN_KEY) ?? "null") as RunData | null;
+      return data?.version === 1 ? data : null;
+    } catch {
+      return null;
+    }
+  },
+  save(data: RunData): void {
+    try {
+      localStorage.setItem(RUN_KEY, JSON.stringify(data));
+    } catch {}
+  },
+  clear(): void {
+    try {
+      localStorage.removeItem(RUN_KEY);
+    } catch {}
+  },
+};
+
+export const discardScores: ScoreStorage = {
+  load: () => 0,
+  save: () => {},
 };
