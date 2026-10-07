@@ -74,7 +74,9 @@ const defs: CharmDef[] = [
     price: 6,
     effect: {
       event: (kind, game) => {
-        if (kind === "navelIn") game.multiplier = Math.min(MAX_MULTIPLIER, game.multiplier + 1);
+        if (kind !== "navelIn") return false;
+        game.multiplier = Math.min(MAX_MULTIPLIER, game.multiplier + 1);
+        return true;
       },
     },
   },

@@ -1163,9 +1163,27 @@ describe("Game", () => {
       expect(game.kickbacksLit.right).toBe(true);
     });
 
+    it("効果で点が変わると、その効果が効いたことを知らせる", () => {
+      const game = gameWith({ modifiers: [{ id: "double-bumper", score: (kind, points) => (kind === "bumper" ? points * 2 : points) }] });
+      hitBumper(game);
+      expect(game.drainEvents().filter((e) => e.kind === "charm").map((e) => [e.id, e.speed])).toEqual([["double-bumper", 2]]);
+    });
+
+    it("効果で点が変わらなければ知らせない", () => {
+      const game = gameWith({ modifiers: [{ id: "double-sling", score: (kind, points) => (kind === "sling" ? points * 2 : points) }] });
+      hitBumper(game);
+      expect(game.drainEvents().filter((e) => e.kind === "charm")).toEqual([]);
+    });
+
+    it("出来事に反応した効果が効いたと答えたら知らせる", () => {
+      const game = gameWith({ modifiers: [{ id: "watcher", event: (kind) => kind === "bumper" }] });
+      hitBumper(game);
+      expect(game.drainEvents().filter((e) => e.kind === "charm").map((e) => e.id)).toEqual(["watcher"]);
+    });
+
     it("台の出来事に反応する効果を付けられる", () => {
       const seen: string[] = [];
-      const game = gameWith({ modifiers: [{ id: "watcher", event: (kind) => seen.push(kind) }] });
+      const game = gameWith({ modifiers: [{ id: "watcher", event: (kind) => void seen.push(kind) }] });
       hitBumper(game);
       expect(seen).toContain("bumper");
     });
