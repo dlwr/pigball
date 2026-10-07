@@ -60,7 +60,7 @@ export const createLayout = (): TableLayout => ({
     ...polyline("shooter-wall", [[46, -5], [46, 80]]),
     { id: "shooter-gate", ax: 46, ay: 80, bx: 50, by: 83.5, kind: "wall", oneWay: true },
     { id: "kickback-guide-l", ax: 4.5, ay: 42, bx: 0, by: 34, kind: "wall", oneWay: true },
-    { id: "kickback-guide-r", ax: 46, ay: 50, bx: 40, by: 57, kind: "wall", oneWay: true },
+    { id: "kickback-guide-r", ax: 46, ay: 50, bx: 41, by: 58, kind: "wall", oneWay: true },
     ...polyline("inlane-l", leftInlane),
     ...polyline("inlane-r", mirrored(leftInlane)),
     ...polyline("sling-back-l", leftSlingBack),
