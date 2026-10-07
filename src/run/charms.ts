@@ -1,4 +1,4 @@
-import type { Modifier, ScoreKind } from "../game/game";
+import { MAX_MULTIPLIER, type Modifier, type ScoreKind } from "../game/game";
 
 export interface CharmDef {
   id: string;
@@ -7,6 +7,8 @@ export interface CharmDef {
   price: number;
   effect: Omit<Modifier, "id">;
 }
+
+const ROTOR_FRENZY_OMEGA = 4;
 
 const boost = (kinds: Partial<Record<ScoreKind, number>>): Omit<Modifier, "id"> => ({
   score: (kind, points) => points * (kinds[kind] ?? 1),
@@ -57,6 +59,25 @@ const defs: CharmDef[] = [
   { id: "long-save", name: "おまもり", description: "ボールセーブが6秒長い", price: 4, effect: { start: (game) => (game.rules.ballSaveSeconds += 6) } },
   { id: "express-ramp", name: "急行ホース", description: "ランプ1回を2回分として数える", price: 7, effect: { rampWorth: () => 2 } },
   { id: "extra-piglet", name: "子だくさん", description: "ボールが1個増える", price: 8, effect: { start: (game) => (game.ballsLeft += 1) } },
+  { id: "piggy-crusher", name: "トンカチ", description: "貯金箱が3回で割れる", price: 5, effect: { start: (game) => (game.piggyHitsToBreak = 3) } },
+  {
+    id: "rotor-frenzy",
+    name: "豚足フィーバー",
+    description: "風車が勢いよく回っている間、全部の点が1.5倍",
+    price: 6,
+    effect: { score: (_kind, points, game) => (Math.abs(game.world.rotors[0]?.omega ?? 0) > ROTOR_FRENZY_OMEGA ? points * 1.5 : points) },
+  },
+  {
+    id: "navel-charge",
+    name: "へそ充電",
+    description: "へそに入るたびに倍率が1上がる（最大5）",
+    price: 6,
+    effect: {
+      event: (kind, game) => {
+        if (kind === "navelIn") game.multiplier = Math.min(MAX_MULTIPLIER, game.multiplier + 1);
+      },
+    },
+  },
 ];
 
 export const CHARMS: Record<string, CharmDef> = Object.fromEntries(defs.map((def) => [def.id, def]));
