@@ -1,4 +1,4 @@
-import type { BumperDef, FlipperDef, PlungerDef, SegmentDef, SensorDef } from "../physics/world";
+import { LAYER_FLOOR, LAYER_RAMP, type BumperDef, type FlipperDef, type LayerGateDef, type PlungerDef, type SegmentDef, type SensorDef } from "../physics/world";
 
 export const TABLE_WIDTH = 50;
 export const TABLE_HEIGHT = 100;
@@ -17,9 +17,18 @@ export interface TableLayout {
   rollovers: SensorDef[];
   spinner: SensorDef;
   shooterExit: SensorDef;
+  ramp: Ramp;
 }
 
-type Point = [number, number];
+export interface Ramp {
+  path: Point[];
+  width: number;
+  rails: SegmentDef[];
+  entry: LayerGateDef;
+  exit: LayerGateDef;
+}
+
+export type Point = [number, number];
 
 const mirrorX = (x: number) => PLAYFIELD_WIDTH - x;
 
@@ -89,4 +98,76 @@ export const createLayout = (): TableLayout => ({
   rollovers: [15, 21, 27].map((x, i) => ({ id: `rollover-${i}`, ax: x, ay: 89, bx: x + 6, by: 89 })),
   spinner: { id: "spinner", ax: 34, ay: 80, bx: 40, by: 80 },
   shooterExit: { id: "shooter-exit", ax: 46, ay: 78, bx: 50, by: 78 },
+  ramp: createRamp(),
 });
+
+const RAMP_CONTROL: Point[] = [
+  [36.5, 40], [39.5, 47], [41.8, 58], [42, 72], [40.5, 84], [35, 91], [25, 93.5], [15, 91.5], [9.5, 84], [8, 70], [7, 52], [6, 36],
+];
+const RAMP_WIDTH = 4.4;
+const RAMP_SAMPLES_PER_SPAN = 6;
+const RAMP_MOUTH_LENGTH = 9;
+
+const catmullRom = (points: Point[], perSpan: number): Point[] => {
+  const result: Point[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const [p1, p2] = [points[i], points[i + 1]];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    for (let j = 0; j < perSpan; j++) {
+      const t = j / perSpan;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const at = (k: 0 | 1) =>
+        0.5 * (2 * p1[k] + (p2[k] - p0[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (3 * p1[k] - p0[k] - 3 * p2[k] + p3[k]) * t3);
+      result.push([at(0), at(1)]);
+    }
+  }
+  result.push(points[points.length - 1]);
+  return result;
+};
+
+const normalAt = (path: Point[], i: number): Point => {
+  const [ax, ay] = path[Math.max(0, i - 1)];
+  const [bx, by] = path[Math.min(path.length - 1, i + 1)];
+  const len = Math.hypot(bx - ax, by - ay);
+  return [-(by - ay) / len, (bx - ax) / len];
+};
+
+const pathLengths = (path: Point[]): number[] =>
+  path.reduce<number[]>((acc, [x, y], i) => {
+    acc.push(i === 0 ? 0 : acc[i - 1] + Math.hypot(x - path[i - 1][0], y - path[i - 1][1]));
+    return acc;
+  }, []);
+
+const gateAcross = (path: Point[], i: number, id: string, half: number): Pick<LayerGateDef, "id" | "ax" | "ay" | "bx" | "by"> => {
+  const [x, y] = path[i];
+  const [nx, ny] = normalAt(path, i);
+  return { id, ax: x + nx * half, ay: y + ny * half, bx: x - nx * half, by: y - ny * half };
+};
+
+const createRamp = (): Ramp => {
+  const path = catmullRom(RAMP_CONTROL, RAMP_SAMPLES_PER_SPAN);
+  const lengths = pathLengths(path);
+  const half = RAMP_WIDTH / 2;
+  const rails: SegmentDef[] = [];
+  for (const side of [1, -1]) {
+    const offset = path.map(([x, y], i): Point => {
+      const [nx, ny] = normalAt(path, i);
+      return [x + nx * half * side, y + ny * half * side];
+    });
+    for (let i = 0; i < offset.length - 1; i++) {
+      const [ax, ay] = offset[i];
+      const [bx, by] = offset[i + 1];
+      const layers = lengths[i] < RAMP_MOUTH_LENGTH ? LAYER_FLOOR | LAYER_RAMP : LAYER_RAMP;
+      rails.push({ id: `ramp-rail-${side > 0 ? "l" : "r"}-${i}`, ax, ay, bx, by, layers });
+    }
+  }
+  return {
+    path,
+    width: RAMP_WIDTH,
+    rails,
+    entry: { ...gateAcross(path, 0, "ramp-entry", half), from: LAYER_FLOOR, to: LAYER_RAMP, reversible: true },
+    exit: { ...gateAcross(path, path.length - 1, "ramp-exit", half), from: LAYER_RAMP, to: LAYER_FLOOR, reversible: false },
+  };
+};
