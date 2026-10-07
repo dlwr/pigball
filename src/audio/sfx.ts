@@ -84,6 +84,14 @@ export class Sfx {
         this.burst(500, 0.2, 0.3 + event.speed * 0.4, 0.8);
         this.tone("sine", 80, 40, 0.18, 0.4);
         break;
+      case "multiball":
+        this.arpeggio([392, 523, 659, 784, 1047, 784, 1047, 1319], 0.06, "sawtooth", 0.22);
+        this.burst(3000, 0.4, 0.3, 0.6);
+        break;
+      case "jackpot":
+        this.arpeggio([1047, 1319, 1568, 2093], 0.05, "square", 0.28);
+        this.tone("sine", 110, 55, 0.5, 0.6);
+        break;
       case "extraBall":
         this.arpeggio([523, 659, 784, 1047, 1319, 1568], 0.07, "square", 0.25);
         break;

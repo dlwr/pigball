@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createParams } from "../physics/params";
-import { LAYER_FLOOR } from "../physics/world";
+import { type Ball, LAYER_FLOOR } from "../physics/world";
 import { Game, type GameEvent, type ScoreStorage } from "./game";
 import { DRAIN_Y, SHOOTER_X } from "./table";
 
@@ -48,6 +48,14 @@ const completeRamps = (game: Game, times: number) => {
       game.step(DT);
       completed = game.drainEvents().some((e) => e.kind === "ramp");
     }
+  }
+};
+
+const completeRampsWithoutCombo = (game: Game, times: number) => {
+  for (let i = 0; i < times; i++) {
+    completeRamps(game, 1);
+    place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+    run(game, 4.1);
   }
 };
 
@@ -408,26 +416,26 @@ describe("Game", () => {
   describe("エクストラボール", () => {
     it("1ゲームでランプを5回通すと獲得する", () => {
       const game = newGame();
-      completeRamps(game, 5);
+      completeRampsWithoutCombo(game, 5);
       expect(game.extraBalls).toBe(1);
     });
 
     it("獲得できるのは1ゲームに1回だけ", () => {
       const game = newGame();
-      completeRamps(game, 10);
+      completeRampsWithoutCombo(game, 10);
       expect(game.extraBalls).toBe(1);
     });
 
     it("持っていればドレインしてもボール数が減らない", () => {
       const game = newGame();
-      completeRamps(game, 5);
+      completeRampsWithoutCombo(game, 5);
       drain(game);
       expect([game.ballsLeft, game.extraBalls]).toEqual([3, 0]);
     });
 
     it("使ったあとのドレインではボール数が減る", () => {
       const game = newGame();
-      completeRamps(game, 5);
+      completeRampsWithoutCombo(game, 5);
       drain(game);
       drain(game);
       expect(game.ballsLeft).toBe(2);
@@ -435,10 +443,10 @@ describe("Game", () => {
 
     it("リスタートすると再び獲得できる", () => {
       const game = newGame();
-      completeRamps(game, 5);
+      completeRampsWithoutCombo(game, 5);
       drain(game);
       game.restart();
-      completeRamps(game, 5);
+      completeRampsWithoutCombo(game, 5);
       expect(game.extraBalls).toBe(1);
     });
   });
@@ -481,6 +489,102 @@ describe("Game", () => {
       const before = game.score;
       drain(game);
       expect(game.score).toBe(before);
+    });
+  });
+
+  describe("マルチボール", () => {
+    const startMultiball = (game: Game) => {
+      completeRamps(game, 3);
+    };
+
+    const removeBall = (game: Game, target: Ball) => {
+      Object.assign(target, { x: 23, y: DRAIN_Y - 1, prevX: 23, prevY: DRAIN_Y - 1, vx: 0, vy: -10 });
+      game.step(DT);
+    };
+
+    const runUntilBallSaveEnds = (game: Game) => {
+      for (let t = 0; t < 20 && game.ballSaveActive; t += DT) game.step(DT);
+    };
+
+    const drainUntilOneLeft = (game: Game) => {
+      for (let t = 0; t < 5 && game.ballsInPlay > 1; t += DT) {
+        if (game.world.balls.length > 1) removeBall(game, ball(game));
+        else game.step(DT);
+      }
+    };
+
+    it("ランプを続けて3回通すと始まる", () => {
+      const game = newGame();
+      startMultiball(game);
+      expect(game.inMultiball).toBe(true);
+    });
+
+    it("始まると追加のボールが2個打ち出される", () => {
+      const game = newGame();
+      startMultiball(game);
+      game.drainEvents();
+      let launches = 0;
+      for (let t = 0; t < 1.5; t += DT) {
+        game.step(DT);
+        launches += game.drainEvents().filter((e) => e.kind === "launch").length;
+      }
+      expect(launches).toBe(2);
+    });
+
+    it("打ち出されたボールはシューターレーンを出てプレイフィールドに入る", () => {
+      const game = newGame();
+      startMultiball(game);
+      run(game, 2);
+      expect(game.world.balls.filter((b) => b.x > 46)).toEqual([]);
+    });
+
+    it("始まるとボールセーブが付く", () => {
+      const game = newGame();
+      startMultiball(game);
+      expect(game.ballSaveActive).toBe(true);
+    });
+
+    it("ボールセーブ中に落ちたボールは打ち直される", () => {
+      const game = newGame();
+      startMultiball(game);
+      run(game, 2);
+      removeBall(game, ball(game));
+      expect(game.ballsInPlay).toBe(3);
+    });
+
+    it("ボールセーブが切れたあとは、最後の1個になるまで落ちてもボール数は減らない", () => {
+      const game = newGame();
+      startMultiball(game);
+      runUntilBallSaveEnds(game);
+      drainUntilOneLeft(game);
+      expect(game.ballsLeft).toBe(3);
+    });
+
+    it("最後の1個になると終わる", () => {
+      const game = newGame();
+      startMultiball(game);
+      runUntilBallSaveEnds(game);
+      drainUntilOneLeft(game);
+      expect(game.inMultiball).toBe(false);
+    });
+
+    it("最中にランプを通すとジャックポットが入る", () => {
+      const game = newGame();
+      startMultiball(game);
+      const before = game.score;
+      completeRamps(game, 1);
+      expect(game.score - before).toBeGreaterThanOrEqual(20000);
+    });
+
+    it("終わったあとの次のボールを弱く打ってもボールセーブは付かない", () => {
+      const game = newGame();
+      startMultiball(game);
+      for (let t = 0; t < 40 && game.ballsLeft === 3; t += DT) game.step(DT);
+      game.setPlunger(true);
+      run(game, 0.2);
+      game.setPlunger(false);
+      run(game, 1.5);
+      expect(game.ballSaveActive).toBe(false);
     });
   });
 

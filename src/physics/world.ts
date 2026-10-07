@@ -98,6 +98,7 @@ export type PhysicsEvent =
   | { type: "gate"; id: string; layer: number; speed: number; x: number; y: number };
 
 const CONTACT_EVENT_SPEED = 4;
+const BALL_RESTITUTION = 0.9;
 
 export class World {
   readonly balls: Ball[] = [];
@@ -171,6 +172,32 @@ export class World {
     for (const flipper of this.flippers) this.stepFlipper(flipper, dt);
     if (this.plunger) this.stepPlunger(this.plunger, dt);
     for (const ball of this.balls) this.stepBall(ball, dt);
+    for (let i = 0; i < this.balls.length; i++) {
+      for (let j = i + 1; j < this.balls.length; j++) this.collideBalls(this.balls[i], this.balls[j]);
+    }
+  }
+
+  private collideBalls(a: Ball, b: Ball): void {
+    if (a.layer !== b.layer) return;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dist = Math.hypot(dx, dy);
+    const overlap = a.r + b.r - dist;
+    if (overlap <= 0 || dist === 0) return;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    a.x -= (nx * overlap) / 2;
+    a.y -= (ny * overlap) / 2;
+    b.x += (nx * overlap) / 2;
+    b.y += (ny * overlap) / 2;
+    const approach = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+    if (approach <= 0) return;
+    const impulse = (approach * (1 + BALL_RESTITUTION)) / 2;
+    a.vx -= impulse * nx;
+    a.vy -= impulse * ny;
+    b.vx += impulse * nx;
+    b.vy += impulse * ny;
+    if (approach > CONTACT_EVENT_SPEED) this.events.push({ type: "contact", id: "ball", speed: approach, x: a.x + nx * a.r, y: a.y + ny * a.r });
   }
 
   private stepFlipper(flipper: Flipper, dt: number): void {
