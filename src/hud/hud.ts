@@ -67,6 +67,10 @@ export class Hud {
     return combo > 1 ? `RAMP COMBO ×${combo}${progress}` : `RAMP${progress}`;
   }
 
+  notice(text: string): void {
+    this.showToast(text);
+  }
+
   private showToast(text: string): void {
     this.toastQueue.push(text);
     if (this.toastTime <= 0) this.showNextToast();
