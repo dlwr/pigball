@@ -1,7 +1,11 @@
 import GUI from "lil-gui";
 import type { PhysicsParams } from "../physics/params";
 
-export const mountDebugPanel = (params: PhysicsParams, stats: { fps: number; steps: number; frameMs: number }): void => {
+export const mountDebugPanel = (
+  params: PhysicsParams,
+  stats: { fps: number; steps: number; frameMs: number },
+  view: { tilt: number; fov: number },
+): void => {
   const gui = new GUI({ title: "physics" });
   gui.add(params, "gravity", 20, 400, 1);
   gui.add(params, "maxSpeed", 100, 900, 10);
@@ -15,6 +19,9 @@ export const mountDebugPanel = (params: PhysicsParams, stats: { fps: number; ste
   gui.add(params, "plungerPullRate", 0.2, 5, 0.1);
   gui.add(params, "slingKick", 0, 300, 1);
   gui.add(params, "slingMinImpact", 0, 100, 1);
+  const camera = gui.addFolder("view");
+  camera.add(view, "tilt", 0, 60, 1);
+  camera.add(view, "fov", 10, 70, 1);
   const monitor = gui.addFolder("stats");
   monitor.add(stats, "fps").listen().disable();
   monitor.add(stats, "steps").listen().disable();

@@ -8,6 +8,7 @@ import { LAYER_RAMP } from "../physics/world";
 import { Sparks, Shake, Trail } from "./effects";
 import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
+import { fitTiltedCamera } from "./camera";
 import { Piglet } from "./piglet";
 import { GooglyEye, type Mouth, type Snout, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
 
@@ -36,7 +37,10 @@ export class TableRenderer {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly composer: EffectComposer;
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.OrthographicCamera();
+  private readonly camera = new THREE.PerspectiveCamera(30, 1, 1, 2000);
+  readonly view = { tilt: 25, fov: 30 };
+  private fittedView = "";
+  private readonly cameraBase = new THREE.Vector3();
   private readonly ballViews = new Map<Ball, BallView>();
   private readonly spareBallViews: BallView[] = [];
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
@@ -65,7 +69,6 @@ export class TableRenderer {
   private squash = 0;
   private squashVelocity = 0;
   private time = 0;
-  private readonly center = new THREE.Vector2(TABLE_WIDTH / 2, (VIEW_BOTTOM + VIEW_TOP) / 2);
 
   constructor(
     private readonly container: HTMLElement,
@@ -82,9 +85,6 @@ export class TableRenderer {
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     this.scene.environmentIntensity = 0.35;
 
-    this.camera.position.set(this.center.x, this.center.y, 50);
-    this.camera.near = 0.1;
-    this.camera.far = 200;
 
     this.addLights();
     this.addPlayfield();
@@ -128,14 +128,23 @@ export class TableRenderer {
     const width = Math.min(this.container.clientWidth, Math.ceil(height * (tableW / tableH)));
     this.renderer.setSize(width, height);
     this.composer.setSize(width, height);
-    const aspect = width / height;
-    const viewH = aspect >= tableW / tableH ? tableH : tableW / aspect;
-    const viewW = viewH * aspect;
-    this.camera.left = -viewW / 2;
-    this.camera.right = viewW / 2;
-    this.camera.top = viewH / 2;
-    this.camera.bottom = -viewH / 2;
-    this.camera.updateProjectionMatrix();
+    this.fitCamera(width / height);
+  }
+
+  private fitCamera(aspect: number): void {
+    const left = -MARGIN;
+    const right = TABLE_WIDTH + MARGIN;
+    const bounds = [
+      new THREE.Vector3(left, VIEW_BOTTOM, 0),
+      new THREE.Vector3(right, VIEW_BOTTOM, 0),
+      new THREE.Vector3(left, VIEW_TOP, 0),
+      new THREE.Vector3(right, VIEW_TOP, 0),
+      new THREE.Vector3(left, TABLE_HEIGHT, WALL_HEIGHT * 3),
+      new THREE.Vector3(right, TABLE_HEIGHT, WALL_HEIGHT * 3),
+    ];
+    fitTiltedCamera(this.camera, aspect, bounds, this.view.tilt, this.view.fov);
+    this.cameraBase.copy(this.camera.position);
+    this.fittedView = `${this.view.tilt}|${this.view.fov}`;
   }
 
   onEvent(event: GameEvent): void {
@@ -243,7 +252,8 @@ export class TableRenderer {
       dt,
     );
     const [sx, sy] = this.shake.offset(dt, 1.2);
-    this.camera.position.set(this.center.x + sx, this.center.y + sy, 50);
+    if (this.fittedView !== `${this.view.tilt}|${this.view.fov}`) this.fitCamera(this.camera.aspect);
+    this.camera.position.set(this.cameraBase.x + sx, this.cameraBase.y + sy, this.cameraBase.z);
     this.composer.render(dt);
   }
 
@@ -369,8 +379,8 @@ export class TableRenderer {
   }
 
   private addPlayfield(): void {
-    const width = TABLE_WIDTH + 4;
-    const height = TABLE_HEIGHT + 10;
+    const width = TABLE_WIDTH + 30;
+    const height = TABLE_HEIGHT + 50;
     this.skin = new THREE.MeshStandardMaterial({
       map: createPlayfieldSkin(width, height),
       roughness: 0.6,
@@ -379,7 +389,7 @@ export class TableRenderer {
       emissiveIntensity: 0,
     });
     const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, height), this.skin);
-    plane.position.set(TABLE_WIDTH / 2, TABLE_HEIGHT / 2 - 3, 0);
+    plane.position.set(TABLE_WIDTH / 2, TABLE_HEIGHT / 2 - 10, 0);
     plane.receiveShadow = true;
     this.scene.add(plane);
   }
