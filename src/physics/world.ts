@@ -351,7 +351,7 @@ export class World {
     if (seg.kind === "sling" && impact >= this.params.slingMinImpact) {
       kick(ball, nx, ny, this.params.slingKick);
     }
-    this.emitContact(seg.id, impact, hit.cx, hit.cy, seg.kind !== "wall");
+    this.emitContact(seg.id, impact, hit.cx, hit.cy, seg.kind === "sling" || seg.kind === "target");
   }
 
   private collideBumper(ball: Ball, bumper: Bumper): void {

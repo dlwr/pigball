@@ -13,6 +13,7 @@ export type GameEventKind =
   | "bumper"
   | "sling"
   | "rotor"
+  | "belly"
   | "wall"
   | "flipper"
   | "target"
@@ -70,6 +71,7 @@ const SCORES = {
   bumper: 100,
   sling: 10,
   rotor: 50,
+  belly: 30,
   target: 500,
   bank: 5000,
   rollover: 200,
@@ -92,7 +94,7 @@ interface HistoryEntry {
   replayable: boolean;
 }
 
-const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target|rotor)/.test(event.id);
+const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target|rotor|belly)/.test(event.id);
 
 export interface GameStats {
   ramps: number;
@@ -145,7 +147,7 @@ export class Game {
     this.highScore = storage.load();
     this.world = new World(params);
     const { layout, world } = this;
-    for (const def of [...layout.walls, ...layout.slings, ...layout.ramp.rails]) world.addSegment(def);
+    for (const def of [...layout.walls, ...layout.slings, ...layout.bellies, ...layout.ramp.rails]) world.addSegment(def);
     world.addLayerGate(layout.ramp.entry);
     world.addLayerGate(layout.ramp.exit);
     this.targets = layout.targets.map((def) => world.addSegment(def));
@@ -347,6 +349,9 @@ export class Game {
       this.addScore(SCORES.bumper);
       this.bonus += BONUS.bumper;
       this.emit("bumper", x, y, speed, id);
+    } else if (id.startsWith("belly")) {
+      this.addScore(SCORES.belly);
+      this.emit("belly", x, y, speed, id);
     } else if (id === "rotor") {
       this.addScore(SCORES.rotor);
       this.emit("rotor", x, y, speed, id);

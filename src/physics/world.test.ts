@@ -96,6 +96,17 @@ describe("World", () => {
       expect(bounceOff("belly", 80)).toBeGreaterThan(bounceOff("wall", 80) * 2);
     });
 
+    it("そっと触れただけでは接触イベントを出さない", () => {
+      const params = createParams();
+      params.gravity = 0;
+      const world = new World(params);
+      world.addSegment({ id: "side", ax: 0, ay: 40, bx: 0, by: 60, kind: "belly" });
+      const ball = world.spawnBall(1.4, 50);
+      ball.vx = -2;
+      run(world, 0.2);
+      expect(world.drainEvents()).toEqual([]);
+    });
+
     it("そっと触れただけでは弾まない", () => {
       expect(bounceOff("belly", 3)).toBeLessThan(3);
     });
