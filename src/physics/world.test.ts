@@ -76,6 +76,61 @@ describe("World", () => {
     });
   });
 
+  describe("泥んこ沼", () => {
+    const mudDef = { id: "mud", x: 25, y: 50, r: 4, drag: 4 };
+
+    const zeroGravityWorld = () => {
+      const params = createParams();
+      params.gravity = 0;
+      return new World(params);
+    };
+
+    it("中を通るボールは減速する", () => {
+      const world = zeroGravityWorld();
+      world.addMud(mudDef);
+      const ball = world.spawnBall(25, 50);
+      ball.vx = 100;
+      run(world, 0.03);
+      expect(ball.vx).toBeLessThan(95);
+    });
+
+    it("外を通るボールは減速しない", () => {
+      const world = zeroGravityWorld();
+      world.addMud(mudDef);
+      const ball = world.spawnBall(25, 70);
+      ball.vx = 100;
+      run(world, 0.03);
+      expect(ball.vx).toBe(100);
+    });
+
+    it("中で止まりきらず、重力で抜け出す", () => {
+      const world = new World(createParams());
+      world.addMud(mudDef);
+      const ball = world.spawnBall(25, 50);
+      run(world, 3);
+      expect(ball.y).toBeLessThan(40);
+    });
+
+    it("入ったときに一度だけイベントを出す", () => {
+      const world = zeroGravityWorld();
+      world.addMud(mudDef);
+      const ball = world.spawnBall(15, 50);
+      ball.vx = 60;
+      run(world, 0.3);
+      expect(world.drainEvents().filter((e) => e.type === "hole" && e.id === "mud")).toHaveLength(1);
+    });
+
+    it("ランプの上のボールは減速しない", () => {
+      const world = zeroGravityWorld();
+      world.addMud(mudDef);
+      const ball = world.spawnBall(25, 50);
+      ball.layer = LAYER_RAMP;
+      ball.vx = 100;
+      run(world, 0.03);
+      expect(ball.vx).toBe(100);
+    });
+  });
+
   describe("動く的", () => {
     const moverDef = { id: "bank", ax: 15, bx: 35, y: 50, r: 2, period: 4 };
 

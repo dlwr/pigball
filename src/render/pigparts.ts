@@ -437,3 +437,52 @@ export const createPiggyBank = (r: number, maxCracks: number): PiggyBank => {
     },
   };
 };
+
+export interface MudPit {
+  object: THREE.Object3D;
+  update(stirred: boolean, time: number, dt: number): void;
+}
+
+const BUBBLES = 7;
+
+export const createMudPit = (x: number, y: number, r: number): MudPit => {
+  const group = new THREE.Group();
+  const outline = new THREE.Shape();
+  for (let i = 0; i <= 64; i++) {
+    const a = (i / 64) * Math.PI * 2;
+    const k = 1 + 0.09 * Math.sin(a * 3) + 0.05 * Math.sin(a * 5 + 1);
+    const px = Math.cos(a) * r * 1.08 * k;
+    const py = Math.sin(a) * r * 0.95 * k;
+    if (i === 0) outline.moveTo(px, py);
+    else outline.lineTo(px, py);
+  }
+  const puddle = new THREE.Mesh(new THREE.ShapeGeometry(outline), new THREE.MeshStandardMaterial({ color: PALETTE.mud, roughness: 0.4, metalness: 0, envMapIntensity: 0.3 }));
+  puddle.position.z = 0.03;
+  puddle.receiveShadow = true;
+  const rim = new THREE.Mesh(new THREE.ShapeGeometry(outline), standard(PALETTE.mudDark, 0.9));
+  rim.scale.set(1.08, 1.08, 1);
+  rim.position.z = 0.02;
+  const bubbleMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4122, roughness: 0.25, metalness: 0, envMapIntensity: 0.4 });
+  const bubbles = Array.from({ length: BUBBLES }, (_, i) => {
+    const bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), bubbleMaterial);
+    const a = i * 2.4;
+    const d = r * (0.2 + ((i * 0.37) % 0.6));
+    bubble.position.set(Math.cos(a) * d, Math.sin(a) * d, 0.05);
+    return { mesh: bubble, phase: i * 0.9 };
+  });
+  group.add(rim, puddle, ...bubbles.map((b) => b.mesh));
+  group.position.set(x, y, 0);
+  let stir = 0;
+  return {
+    object: group,
+    update(stirred, time, dt) {
+      stir += ((stirred ? 1 : 0) - stir) * Math.min(1, dt * 6);
+      const rate = 0.7 + stir * 3;
+      for (const bubble of bubbles) {
+        const t = (time * rate + bubble.phase) % 2.2;
+        const size = t < 1.6 ? (t / 1.6) * (0.22 + stir * 0.18) : 0;
+        bubble.mesh.scale.set(size, size, size * 0.8);
+      }
+    },
+  };
+};

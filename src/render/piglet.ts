@@ -61,18 +61,21 @@ export class Piglet {
   readonly root = new THREE.Group();
   private readonly counter = new THREE.Group();
   private readonly body = new THREE.Group();
+  private readonly skin = MATERIALS.skin.clone();
+  private readonly clean = new THREE.Color(PALETTE.pigSkin);
+  private readonly muddy = new THREE.Color(PALETTE.mud);
   private readonly membrane = new THREE.Mesh(GEOMETRY.sphere, MEMBRANE);
   private wrap = 0;
   private age = 0;
 
   constructor() {
     const { body } = this;
-    body.add(part(GEOMETRY.sphere, MATERIALS.skin, [0, 0, 0]));
+    body.add(part(GEOMETRY.sphere, this.skin, [0, 0, 0]));
     body.add(part(GEOMETRY.snout, MATERIALS.snout, [0, -0.05, 0.92]));
     for (const x of [-0.14, 0.14]) body.add(part(GEOMETRY.sphere, MATERIALS.nostril, [x, -0.05, 1.07], [0.07, 0.11, 0.04]));
     body.add(eye(-0.36, 0.26), eye(0.33, 0.19));
     for (const side of [-1, 1]) {
-      const ear = part(GEOMETRY.ear, MATERIALS.skin, [side * 0.55, 0.78, 0.35], [1, 1, 0.5]);
+      const ear = part(GEOMETRY.ear, this.skin, [side * 0.55, 0.78, 0.35], [1, 1, 0.5]);
       ear.rotation.set(-0.5, 0, -side * 0.55);
       body.add(ear);
       body.add(facing(part(GEOMETRY.disc, MATERIALS.blush, [side * 0.62, -0.25, 0.75], [0.15, 0.1, 1]), [side * 0.62, -0.25, 0.75]));
@@ -89,6 +92,11 @@ export class Piglet {
     this.body.quaternion.identity();
     this.age = 0;
     this.wrap = 0;
+  }
+
+  setDirt(amount: number): void {
+    this.skin.color.copy(this.clean).lerp(this.muddy, amount * 0.85);
+    this.skin.emissiveIntensity = 0.08 * (1 - amount);
   }
 
   setWrapped(wrapped: boolean, dt: number): void {

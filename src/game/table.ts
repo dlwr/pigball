@@ -1,4 +1,4 @@
-import { LAYER_FLOOR, LAYER_RAMP, type BumperDef, type HoleDef, type MoverDef, type RotorDef, type FlipperDef, type LayerGateDef, type PlungerDef, type SegmentDef, type SensorDef } from "../physics/world";
+import { LAYER_FLOOR, LAYER_RAMP, type BumperDef, type HoleDef, type MoverDef, type MudDef, type RotorDef, type FlipperDef, type LayerGateDef, type PlungerDef, type SegmentDef, type SensorDef } from "../physics/world";
 
 export const TABLE_WIDTH = 50;
 export const TABLE_HEIGHT = 100;
@@ -22,6 +22,7 @@ export interface TableLayout {
   bellies: SegmentDef[];
   navel: HoleDef & { ejectX: number; ejectY: number };
   piggy: MoverDef;
+  mud: MudDef;
   ramp: Ramp;
 }
 
@@ -107,6 +108,7 @@ export const createLayout = (): TableLayout => ({
   rollovers: [15, 21, 27].map((x, i) => ({ id: `rollover-${i}`, ax: x, ay: 89, bx: x + 6, by: 89 })),
   spinner: { id: "spinner", ax: 29, ay: 78, bx: 35, by: 78 },
   shooterExit: { id: "shooter-exit", ax: 46, ay: 78, bx: 50, by: 78 },
+  mud: { id: "mud", x: 23, y: 64, r: 3, drag: 4 },
   piggy: { id: "piggy", ax: 16, bx: 26, y: 80.5, r: 1.8, period: 5 },
   navel: { id: "navel", x: 12.5, y: 78, r: 1.4, ejectX: 0.45, ejectY: -0.89 },
   bellies: [
