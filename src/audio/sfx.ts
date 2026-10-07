@@ -56,6 +56,10 @@ export class Sfx {
       case "lanes":
         this.arpeggio([659, 784, 988, 1319], 0.05, "triangle", 0.35);
         break;
+      case "skill":
+        this.arpeggio([784, 988, 1175, 1568, 1976], 0.045, "square", 0.25);
+        this.burst(5000, 0.3, 0.25, 0.7);
+        break;
       case "rampEnter":
         this.tone("sawtooth", 180, 520, 0.35, 0.12);
         break;
