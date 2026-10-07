@@ -77,6 +77,7 @@ const showStageIntro = () => {
   if (!run) return;
   const current = run;
   load(current.stageRules());
+  hud.setRun(current);
   screens.stageIntro(current, () => screens.hide());
 };
 

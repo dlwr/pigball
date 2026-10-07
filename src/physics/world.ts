@@ -167,6 +167,7 @@ const BALL_RESTITUTION = 0.9;
 const ROLLING_SLOWDOWN = 2 / 7;
 const BALANCED_ON_TIP = 0.9995;
 const BELLY_RESTITUTION = 1.25;
+const PLUNGER_REFERENCE_GRAVITY = 150;
 const TIP_OFF_SPEED = 0.05;
 
 export class World {
@@ -354,7 +355,8 @@ export class World {
       plunger.vy = 0;
       return;
     }
-    plunger.vy += this.params.plungerStiffness * (plunger.restY - plunger.y) * dt;
+    const stiffness = this.params.plungerStiffness * (this.params.gravity / PLUNGER_REFERENCE_GRAVITY);
+    plunger.vy += stiffness * (plunger.restY - plunger.y) * dt;
     plunger.y += plunger.vy * dt;
     if (plunger.y >= plunger.restY) plunger.y = plunger.restY;
   }

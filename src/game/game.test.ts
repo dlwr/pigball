@@ -114,6 +114,19 @@ describe("Game", () => {
       expect(ball(game).x).toBeLessThan(46);
     });
 
+    it("重力が重くてもフルパワーで打ち出したボールは台の上まで届く", () => {
+      const params = createParams();
+      params.gravity = 200;
+      const game = new Game(params, memoryStorage());
+      launch(game);
+      let highest = 0;
+      for (let t = 0; t < 1.5; t += DT) {
+        game.step(DT);
+        highest = Math.max(highest, ball(game).y);
+      }
+      expect(highest).toBeGreaterThan(95);
+    });
+
     it("フリッパーを触らなければボールはどこにも引っかからずドレインする", () => {
       const game = newGame();
       launch(game);
@@ -151,6 +164,36 @@ describe("Game", () => {
       run(game, 1.5);
       drain(game);
       expect(game.ballsLeft).toBe(3);
+    });
+
+    it("ボールセーブで戻ったボールを打ち直しても、もうボールセーブは付かない", () => {
+      const game = newGame();
+      const launch = () => {
+        game.setPlunger(true);
+        run(game, 1.2);
+        game.setPlunger(false);
+        run(game, 1.5);
+      };
+      launch();
+      drain(game);
+      launch();
+      expect(game.ballSaveActive).toBe(false);
+    });
+
+    it("次のボールではまたボールセーブが付く", () => {
+      const game = newGame();
+      const launch = () => {
+        game.setPlunger(true);
+        run(game, 1.2);
+        game.setPlunger(false);
+        run(game, 1.5);
+      };
+      launch();
+      drain(game);
+      launch();
+      drain(game);
+      launch();
+      expect([game.ballsLeft, game.ballSaveActive]).toEqual([2, true]);
     });
 
     it("ボールセーブが切れていればボール数を1つ減らす", () => {
@@ -322,25 +365,25 @@ describe("Game", () => {
       run(game, 0.1);
     };
 
-    it("左のお腹に当てると30点", () => {
+    it("下のお腹に当てると30点", () => {
       const game = newGame();
       hitBelly(game, 0);
       expect(game.score).toBe(30);
     });
 
-    it("右のお腹に当てると30点", () => {
+    it("上のお腹に当てると30点", () => {
       const game = newGame();
       hitBelly(game, 1);
       expect(game.score).toBe(30);
     });
 
-    it("シューターレーンを上がるボールはお腹に当たらない", () => {
+    it("フルパワーで打ち出したボールはお腹に当たらない", () => {
       const game = newGame();
       game.setPlunger(true);
       run(game, 1.2);
       game.setPlunger(false);
       const kinds: string[] = [];
-      for (let t = 0; t < 0.5; t += DT) {
+      for (let t = 0; t < 2.5; t += DT) {
         game.step(DT);
         kinds.push(...game.drainEvents().map((e) => e.kind));
       }
