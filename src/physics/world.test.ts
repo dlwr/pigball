@@ -123,6 +123,45 @@ describe("World", () => {
   });
 
   describe("フリッパー", () => {
+    const ballJustBeyondTip = (world: World) => {
+      const reach = leftFlipper.length + leftFlipper.tipRadius + 1.35 + 0.25;
+      return world.spawnBall(leftFlipper.x + reach, leftFlipper.y);
+    };
+
+    const zeroGravity = () => {
+      const params = createParams();
+      params.gravity = 0;
+      return new World(params);
+    };
+
+    it("振り上げ中は先端をわずかに越えたボールにも当たる", () => {
+      const world = zeroGravity();
+      const flipper = world.addFlipper(leftFlipper);
+      const ball = ballJustBeyondTip(world);
+      flipper.pressed = true;
+      run(world, 0.1);
+      expect(ball.vy).toBeGreaterThan(50);
+    });
+
+    it("止まっているフリッパーの当たり判定は広がらない", () => {
+      const world = zeroGravity();
+      world.addFlipper({ ...leftFlipper, restAngle: 0, activeAngle: 0 });
+      const ball = ballJustBeyondTip(world);
+      run(world, 0.1);
+      expect([ball.x, ball.y]).toEqual([ballJustBeyondTip(new World(createParams())).x, leftFlipper.y]);
+    });
+
+    it("振り上げ中でも裏側にあるボールは押し出さない", () => {
+      const world = zeroGravity();
+      const flipper = world.addFlipper(leftFlipper);
+      const tipY = leftFlipper.y + Math.sin(leftFlipper.restAngle) * leftFlipper.length;
+      const tipX = leftFlipper.x + Math.cos(leftFlipper.restAngle) * leftFlipper.length;
+      const ball = world.spawnBall(tipX, tipY - leftFlipper.tipRadius - 1.35 - 0.25);
+      flipper.pressed = true;
+      run(world, 0.1);
+      expect([ball.vx, ball.vy]).toEqual([0, 0]);
+    });
+
     it("押している間は上がりきった角度で止まる", () => {
       const world = new World(createParams());
       const flipper = world.addFlipper(leftFlipper);
