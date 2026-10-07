@@ -14,7 +14,7 @@ export interface Ball {
   layer: number;
 }
 
-export type SegmentKind = "wall" | "sling" | "target";
+export type SegmentKind = "wall" | "sling" | "target" | "belly";
 
 export interface SegmentDef {
   id: string;
@@ -132,6 +132,7 @@ const BUMPER_RECHARGE_SECONDS = 0.12;
 const BALL_RESTITUTION = 0.9;
 const ROLLING_SLOWDOWN = 2 / 7;
 const BALANCED_ON_TIP = 0.9995;
+const BELLY_RESTITUTION = 1.25;
 const TIP_OFF_SPEED = 0.05;
 
 export class World {
@@ -344,12 +345,13 @@ export class World {
       if (nx * fx + ny * fy < 0) return;
       if (ball.vx * fx + ball.vy * fy > 0) return;
     }
-    const impact = this.resolve(ball, nx, ny, ball.r - hit.dist, 0, 0, this.params.wallRestitution);
+    const restitution = seg.kind === "belly" ? BELLY_RESTITUTION : this.params.wallRestitution;
+    const impact = this.resolve(ball, nx, ny, ball.r - hit.dist, 0, 0, restitution);
     if (ny > BALANCED_ON_TIP) this.tipOffEndpoint(ball, seg, hit.cx, hit.cy);
     if (seg.kind === "sling" && impact >= this.params.slingMinImpact) {
       kick(ball, nx, ny, this.params.slingKick);
     }
-    this.emitContact(seg.id, impact, hit.cx, hit.cy, seg.kind !== "wall");
+    this.emitContact(seg.id, impact, hit.cx, hit.cy, seg.kind === "sling" || seg.kind === "target");
   }
 
   private collideBumper(ball: Ball, bumper: Bumper): void {

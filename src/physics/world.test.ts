@@ -76,6 +76,42 @@ describe("World", () => {
     });
   });
 
+  describe("ぽよんお腹", () => {
+    const bounceOff = (kind: "wall" | "belly", speed: number) => {
+      const params = createParams();
+      params.gravity = 0;
+      const world = new World(params);
+      world.addSegment({ id: "side", ax: 0, ay: 40, bx: 0, by: 60, kind });
+      const ball = world.spawnBall(5, 50);
+      ball.vx = -speed;
+      run(world, 0.2);
+      return ball.vx;
+    };
+
+    it("当たる前より速く跳ね返す", () => {
+      expect(bounceOff("belly", 80)).toBeGreaterThan(80);
+    });
+
+    it("普通の壁より強く跳ね返す", () => {
+      expect(bounceOff("belly", 80)).toBeGreaterThan(bounceOff("wall", 80) * 2);
+    });
+
+    it("そっと触れただけでは接触イベントを出さない", () => {
+      const params = createParams();
+      params.gravity = 0;
+      const world = new World(params);
+      world.addSegment({ id: "side", ax: 0, ay: 40, bx: 0, by: 60, kind: "belly" });
+      const ball = world.spawnBall(1.4, 50);
+      ball.vx = -2;
+      run(world, 0.2);
+      expect(world.drainEvents()).toEqual([]);
+    });
+
+    it("そっと触れただけでは弾まない", () => {
+      expect(bounceOff("belly", 3)).toBeLessThan(3);
+    });
+  });
+
   describe("バンパー", () => {
     it("当たったボールを最低でもキック速度で弾き返す", () => {
       const params = createParams();

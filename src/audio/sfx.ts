@@ -46,6 +46,11 @@ export class Sfx {
         this.tone("sawtooth", 660, 330, 0.06, 0.15);
         this.burst(1800, 0.03, 0.4, 2);
         break;
+      case "belly":
+        if (!this.throttle("belly", 0.08)) return;
+        this.tone("sine", 140, 420, 0.09, 0.45);
+        this.tone("sine", 420, 160, 0.16, 0.3, 0.09);
+        break;
       case "rotor":
         if (!this.throttle("rotor", 0.05)) return;
         this.tone("sine", 180 + s * 120, 90, 0.12, 0.3 + s * 0.3);
