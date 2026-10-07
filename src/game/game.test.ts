@@ -603,6 +603,37 @@ describe("Game", () => {
     });
   });
 
+  describe("キックバックで打ち返したボールの行き先", () => {
+    const firstDescent = (game: Game, x: number, vx: number, vy: number) => {
+      place(game, x, 26, vx, vy);
+      let kicked = false;
+      for (let t = 0; t < 8; t += DT) {
+        game.step(DT);
+        kicked ||= game.drainEvents().some((e) => e.kind === "kickback");
+        const b = ball(game);
+        if (!b || game.ballsLeft < 3) return "drain";
+        if (kicked && b.vy < 0 && b.y < 25) return b.x < 4.5 ? "left" : b.x > 41.5 ? "right" : "playfield";
+      }
+      return "stuck";
+    };
+
+    const entries = [-20, -10, 0, 10, 20].flatMap((vx) => [-20, -60, -100, -140].map((vy) => [vx, vy] as const));
+
+    it("左から打ち返したボールは右のアウトレーンへ流れない", () => {
+      const results = entries.map(([vx, vy]) => firstDescent(newGame(), 2, vx, vy));
+      expect(results.filter((r) => r === "right")).toEqual([]);
+    });
+
+    it("右から打ち返したボールは左のアウトレーンへ流れない", () => {
+      const results = entries.map(([vx, vy]) => {
+        const game = newGame();
+        game.kickbacksLit.right = true;
+        return firstDescent(game, 44, vx, vy);
+      });
+      expect(results.filter((r) => r === "left")).toEqual([]);
+    });
+  });
+
   describe("右のキックバック", () => {
     const dropIntoRightOutlane = (game: Game) => {
       place(game, 44, 26, 0, -40);
