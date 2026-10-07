@@ -260,26 +260,60 @@ export const createPlayfieldSkin = (width: number, height: number): THREE.Canvas
   return texture;
 };
 
-export const createRotor = (arms: number, armLength: number, armRadius: number): THREE.Group => {
+export interface Rotor {
+  object: THREE.Group;
+  poke(strength: number): void;
+  update(angle: number, dt: number): void;
+}
+
+const JELLY_STIFFNESS = 260;
+const JELLY_DAMPING = 9;
+
+export const createRotor = (arms: number, armLength: number, armRadius: number): Rotor => {
   const group = new THREE.Group();
-  const leg = standard(PALETTE.flipper, 0.5, PALETTE.flipper, 0.05);
-  const hoof = standard(PALETTE.hoof, 0.3);
+  const leg = standard(PALETTE.pigSkin, 0.6, PALETTE.pigSkin, 0.06);
+  const hoof = standard(PALETTE.hoof, 0.35);
+  const limbs: THREE.Group[] = [];
   for (let k = 0; k < arms; k++) {
     const arm = new THREE.Group();
-    const shin = shadowed(new THREE.Mesh(new THREE.CapsuleGeometry(armRadius, armLength - armRadius * 2, 6, 12).rotateZ(Math.PI / 2), leg));
+    const shin = shadowed(new THREE.Mesh(new THREE.CapsuleGeometry(armRadius, armLength - armRadius * 1.6, 8, 16).rotateZ(Math.PI / 2), leg));
     shin.position.set(armLength / 2, 0, 0);
-    shin.scale.set(1, 1.15, 1.6);
+    shin.scale.set(1, 1, 1.25);
     arm.add(shin);
     for (const side of [-1, 1]) {
-      const toe = shadowed(new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), hoof));
-      toe.scale.set(armRadius * 1.3, armRadius * 0.75, armRadius * 1.3);
-      toe.position.set(armLength - armRadius * 0.3, side * armRadius * 0.5, 0);
+      const toe = shadowed(new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), hoof));
+      toe.scale.set(armRadius * 0.9, armRadius * 0.6, armRadius * 0.9);
+      toe.position.set(armLength - armRadius * 0.1, side * armRadius * 0.45, 0);
       arm.add(toe);
     }
     arm.rotation.z = (k * Math.PI * 2) / arms;
+    limbs.push(arm);
     group.add(arm);
   }
-  const hub = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(armRadius * 2.2, armRadius * 2.4, 0.9, 24).rotateX(Math.PI / 2), standard(PALETTE.pigSnout, 0.5)));
+  const hub = shadowed(new THREE.Mesh(new THREE.SphereGeometry(armRadius * 1.9, 24, 16), standard(PALETTE.pigSnout, 0.55)));
+  hub.scale.z = 0.6;
   group.add(hub);
-  return group;
+  let wobble = 0;
+  let wobbleVelocity = 0;
+  let time = 0;
+  return {
+    object: group,
+    poke(strength) {
+      wobbleVelocity += strength;
+    },
+    update(angle, dt) {
+      time += dt;
+      const step = Math.min(dt, 1 / 30);
+      wobbleVelocity += (-JELLY_STIFFNESS * wobble - JELLY_DAMPING * wobbleVelocity) * step;
+      wobble += wobbleVelocity * step;
+      group.rotation.z = angle;
+      limbs.forEach((limb, k) => {
+        const phase = (k * Math.PI) / 2;
+        limb.rotation.z = (k * Math.PI * 2) / arms + wobble * 0.25 * Math.sin(phase + 1);
+        const breathe = 1 + 0.03 * Math.sin(time * 3 + phase);
+        limb.scale.set(1 + wobble * 0.18 * Math.cos(phase), breathe - wobble * 0.15, breathe - wobble * 0.15);
+      });
+      hub.scale.set(1 - wobble * 0.12, 1 + wobble * 0.12, 0.6);
+    },
+  };
 };
