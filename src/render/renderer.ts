@@ -9,6 +9,7 @@ import { Sparks, Shake, Trail } from "./effects";
 import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { Piglet } from "./piglet";
+import { GooglyEye, createCurlyTail, createGum, createLips, createSnout, createTooth } from "./pigparts";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -28,6 +29,7 @@ interface Glow {
   boost: number;
   value: number;
   mesh?: THREE.Object3D;
+  react?: (value: number) => void;
 }
 
 export class TableRenderer {
@@ -40,6 +42,8 @@ export class TableRenderer {
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
   private readonly glows = new Map<string, Glow>();
   private readonly targetMeshes: THREE.Mesh[] = [];
+  private readonly eyes: GooglyEye[] = [];
+  private readonly lookTarget = new THREE.Vector2();
   private readonly laneMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly spinner: THREE.Mesh;
   private readonly spinnerGlow: THREE.MeshStandardMaterial;
@@ -128,18 +132,20 @@ export class TableRenderer {
     switch (event.kind) {
       case "bumper":
         this.flash(event.id);
-        this.sparks.burst(event.x, event.y, 18, 40, new THREE.Color(PALETTE.bumper));
+        this.jiggleEyes(event.x, event.y, 25);
+        this.sparks.burst(event.x, event.y, 18, 40, new THREE.Color(PALETTE.pigSnout));
         this.shake.add(0.15);
         this.impact(event.speed);
         break;
       case "sling":
         this.flash(event.id?.replace(/-\d+$/, ""));
-        this.sparks.burst(event.x, event.y, 10, 30, new THREE.Color(PALETTE.sling));
+        this.jiggleEyes(event.x, event.y, 18);
+        this.sparks.burst(event.x, event.y, 10, 30, new THREE.Color(PALETTE.pigLips));
         this.shake.add(0.15);
         this.impact(event.speed);
         break;
       case "target":
-        this.sparks.burst(event.x, event.y, 14, 35, new THREE.Color(PALETTE.target));
+        this.sparks.burst(event.x, event.y, 14, 35, new THREE.Color(PALETTE.tooth));
         this.shake.add(0.2);
         this.impact(event.speed);
         break;
@@ -272,7 +278,18 @@ export class TableRenderer {
     for (const glow of this.glows.values()) {
       glow.value *= Math.exp(-dt * 9);
       glow.material.emissiveIntensity = glow.base + glow.value * glow.boost;
-      if (glow.mesh) glow.mesh.scale.z = 1 - glow.value * 0.35;
+      if (glow.react) glow.react(glow.value);
+      else if (glow.mesh) glow.mesh.scale.z = 1 - glow.value * 0.35;
+    }
+    const balls = game.world.balls;
+    for (const eye of this.eyes) {
+      const ex = eye.object.position.x;
+      const ey = eye.object.position.y;
+      const nearest = balls.reduce<(typeof balls)[number] | null>(
+        (best, b) => (!best || Math.hypot(b.x - ex, b.y - ey) < Math.hypot(best.x - ex, best.y - ey) ? b : best),
+        null,
+      );
+      eye.update(nearest ? this.lookTarget.set(nearest.x, nearest.y) : null, dt);
     }
     this.targetMeshes.forEach((mesh, i) => {
       const goal = game.isTargetDown(i) ? -1.6 : 0;
@@ -357,44 +374,52 @@ export class TableRenderer {
   }
 
   private addSlings(): void {
-    for (const seg of this.game.layout.slings) {
-      this.addWall(seg, PALETTE.sling, 0.6, seg.id.replace(/-\d+$/, ""));
+    const { walls, slings } = this.game.layout;
+    for (const seg of slings) {
+      const lips = createLips(seg);
+      this.scene.add(lips.object);
+      const id = seg.id.replace(/-\d+$/, "");
+      this.glows.set(id, { material: lips.material, base: 0.3, boost: 2.5, value: 0, react: lips.react });
+      const side = id.slice(-1);
+      const back = walls.filter((w) => w.id.startsWith(`sling-back-${side}`)).flatMap((w) => [[w.ax, w.ay], [w.bx, w.by]]);
+      const cx = back.reduce((sum, [px]) => sum + px, 0) / back.length;
+      const cy = back.reduce((sum, [, py]) => sum + py, 0) / back.length;
+      this.addEye(cx, cy, 1);
     }
   }
 
   private addBumpers(): void {
     for (const bumper of this.game.layout.bumpers) {
-      const group = new THREE.Group();
-      const ringMaterial = new THREE.MeshStandardMaterial({
-        color: PALETTE.bumper,
-        emissive: PALETTE.bumper,
-        emissiveIntensity: 0.5,
-        metalness: 0.2,
-        roughness: 0.4,
-      });
-      const ring = new THREE.Mesh(new THREE.CylinderGeometry(bumper.r, bumper.r, 1.8, 40), ringMaterial);
-      ring.rotation.x = Math.PI / 2;
-      ring.position.z = 0.9;
-      ring.castShadow = true;
-      const cap = new THREE.Mesh(
-        new THREE.CylinderGeometry(bumper.r * 0.75, bumper.r * 0.85, 0.5, 40),
-        new THREE.MeshStandardMaterial({ color: PALETTE.bumperCap, metalness: 0.9, roughness: 0.3 }),
-      );
-      cap.rotation.x = Math.PI / 2;
-      cap.position.z = 2;
-      group.add(ring, cap);
-      group.position.set(bumper.x, bumper.y, 0);
-      this.scene.add(group);
-      this.glows.set(bumper.id, { material: ringMaterial, base: 0.5, boost: 8, value: 0, mesh: group });
+      const snout = createSnout(bumper.x, bumper.y, bumper.r);
+      this.scene.add(snout.object);
+      this.glows.set(bumper.id, { material: snout.material, base: 0.15, boost: 3, value: 0, react: snout.react });
+      this.addEye(bumper.x - bumper.r * 0.45, bumper.y + bumper.r + 0.8, 1.05);
+      this.addEye(bumper.x + bumper.r * 0.5, bumper.y + bumper.r + 0.6, 0.8);
+    }
+  }
+
+  private addEye(x: number, y: number, size: number): void {
+    const eye = new GooglyEye(x, y, size);
+    this.eyes.push(eye);
+    this.scene.add(eye.object);
+  }
+
+  private jiggleEyes(x: number, y: number, strength: number): void {
+    for (const eye of this.eyes) {
+      const d = Math.hypot(eye.object.position.x - x, eye.object.position.y - y);
+      eye.jiggle(strength / (1 + d * 0.15));
     }
   }
 
   private addTargets(): void {
-    for (const seg of this.game.layout.targets) {
-      const mesh = this.addWall(seg, PALETTE.target, 0.8);
-      mesh.scale.y = 1.6;
-      this.targetMeshes.push(mesh);
+    const { targets } = this.game.layout;
+    for (const seg of targets) {
+      const tooth = createTooth(seg);
+      this.scene.add(tooth);
+      this.targetMeshes.push(tooth);
     }
+    const ys = targets.flatMap((t) => [t.ay, t.by]);
+    this.scene.add(createGum(targets[0].ax - 0.9, Math.min(...ys) - 0.5, Math.max(...ys) + 0.5));
   }
 
   private addLanes(): void {
@@ -414,14 +439,10 @@ export class TableRenderer {
     const glow = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.spark, emissiveIntensity: 0.3 });
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(width, 1.4), glow);
     strip.position.set(cx, spinner.ay, 0.02);
-    const plate = new THREE.Mesh(
-      new THREE.BoxGeometry(width - 0.4, 0.12, 1.6),
-      new THREE.MeshStandardMaterial({ color: PALETTE.spinner, metalness: 1, roughness: 0.2 }),
-    );
+    const plate = createCurlyTail(spinner.ax, spinner.bx);
     plate.position.set(cx, spinner.ay, 2.2);
-    plate.castShadow = true;
     const postGeometry = new THREE.CylinderGeometry(0.3, 0.3, 3.2, 12).rotateX(Math.PI / 2);
-    const postMaterial = new THREE.MeshStandardMaterial({ color: PALETTE.wall, metalness: 0.8, roughness: 0.3 });
+    const postMaterial = new THREE.MeshStandardMaterial({ color: PALETTE.pigSnout, metalness: 0, roughness: 0.5 });
     for (const x of [spinner.ax, spinner.bx]) {
       const post = new THREE.Mesh(postGeometry, postMaterial);
       post.position.set(x, spinner.ay, 1.6);
