@@ -1,4 +1,5 @@
 import { type Game, type GameEvent, RAMPS_FOR_MULTIBALL } from "../game/game";
+import { type Run, STAGES } from "../run/run";
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
 
@@ -11,6 +12,9 @@ export class Hud {
   private readonly message: HTMLElement;
   private readonly toast: HTMLElement;
   private readonly result: HTMLElement;
+  private readonly run: HTMLElement;
+  private readonly goalBar: HTMLElement;
+  private currentRun: Run | null = null;
   private toastTime = 0;
   private readonly toastQueue: string[] = [];
   private shownScore = 0;
@@ -27,6 +31,8 @@ export class Hud {
           <span class="hud-mult"></span>
           <span class="hud-high"></span>
         </div>
+        <div class="hud-run" hidden></div>
+        <div class="hud-goal-bar" hidden><div></div></div>
       </div>
       <div class="hud-message"></div>
       <div class="hud-result">
@@ -45,6 +51,17 @@ export class Hud {
     this.message = this.root.querySelector(".hud-message")!;
     this.toast = this.root.querySelector(".hud-toast")!;
     this.result = this.root.querySelector(".hud-result")!;
+    this.run = this.root.querySelector(".hud-run")!;
+    this.goalBar = this.root.querySelector(".hud-goal-bar")!;
+  }
+
+  setRun(run: Run | null): void {
+    this.currentRun = run;
+    this.lastText = "";
+    this.shownScore = 0;
+    this.run.hidden = !run;
+    this.goalBar.hidden = !run;
+    this.high.hidden = !!run;
   }
 
   onEvent(event: GameEvent, game: Game): void {
@@ -62,6 +79,7 @@ export class Hud {
     else if (event.kind === "navelIn") this.showToast("NAVEL");
     else if (event.kind === "piggyBreak") this.showToast("PIGGY BANK!");
     else if (event.kind === "mud") this.showToast("MUDDY");
+    else if (event.kind === "stageClear") this.showToast("STAGE CLEAR!");
     else if (event.kind === "bonus") this.showToast(`BONUS ${event.speed.toLocaleString("en-US")}`);
   }
 
@@ -106,17 +124,26 @@ export class Hud {
       game.multiplier,
       game.state,
       game.tilted,
+      this.currentRun?.truffles,
     ].join("|");
     if (text === this.lastText) return;
     this.lastText = text;
     this.score.textContent = this.shownScore.toLocaleString("en-US");
     this.high.textContent = `HIGH ${game.highScore.toLocaleString("en-US")}`;
-    this.balls.textContent = `BALL ${Math.min(3, 4 - game.ballsLeft)}/3`;
+    const total = game.rules.balls;
+    this.balls.textContent = `BALL ${Math.max(1, Math.min(total, total + 1 - game.ballsLeft))}/${total}`;
+    const run = this.currentRun;
+    if (run) {
+      const target = run.stageDef.target;
+      this.run.innerHTML = `STAGE <strong>${run.stage + 1}/${STAGES.length}</strong>${run.stageDef.boss ? " BOSS" : ""} · 目標 <strong>${target.toLocaleString("en-US")}</strong> · トリュフ <strong>${run.truffles}</strong>`;
+      (this.goalBar.firstElementChild as HTMLElement).style.width = `${Math.min(100, (this.shownScore / target) * 100)}%`;
+    }
     this.multiplier.textContent = game.multiplier > 1 ? `×${game.multiplier}` : "";
     this.message.textContent = this.messageFor(game);
     this.root.dataset.state = game.state === "over" ? "over" : game.tilted ? "tilt" : game.state;
     this.root.dataset.record = String(game.newHighScore);
-    if (game.state === "over") this.fillResult(game);
+    if (game.state === "over" && !run) this.fillResult(game);
+    if (run) this.root.dataset.state = game.state === "over" ? "run-over" : this.root.dataset.state;
   }
 
   private fillResult(game: Game): void {
@@ -133,7 +160,7 @@ export class Hud {
   }
 
   private messageFor(game: Game): string {
-    if (game.state === "over") return "";
+    if (game.state === "over" || game.state === "cleared") return "";
     if (game.tilted) return "TILT";
     if (game.state === "ready") return isTouch() ? "下にスワイプして離すと発射" : "Space を長押しして離すと発射";
     return "";

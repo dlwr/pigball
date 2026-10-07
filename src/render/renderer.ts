@@ -39,7 +39,7 @@ export class TableRenderer {
   private readonly composer: EffectComposer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(30, 1, 1, 2000);
-  readonly view = { tilt: 25, fov: 30 };
+  readonly view: { tilt: number; fov: number };
   private fittedView = "";
   private readonly cameraBase = new THREE.Vector3();
   private readonly ballViews = new Map<Ball, BallView>();
@@ -78,7 +78,9 @@ export class TableRenderer {
   constructor(
     private readonly container: HTMLElement,
     private readonly game: Game,
+    view = { tilt: 25, fov: 30 },
   ) {
+    this.view = view;
     this.renderer = new THREE.WebGLRenderer({ powerPreference: "high-performance", antialias: false, stencil: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
@@ -133,6 +135,18 @@ export class TableRenderer {
     );
 
     this.resize();
+  }
+
+  dispose(): void {
+    this.scene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh || object instanceof THREE.Points)) return;
+      object.geometry.dispose();
+      for (const material of [object.material].flat()) material.dispose();
+    });
+    this.composer.dispose();
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.renderer.domElement.remove();
   }
 
   resize(): void {

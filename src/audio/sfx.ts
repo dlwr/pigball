@@ -154,6 +154,9 @@ export class Sfx {
       case "tilt":
         this.tone("sawtooth", 62, 58, 0.7, 0.4);
         break;
+      case "stageClear":
+        this.arpeggio([523, 659, 784, 1047, 784, 1047, 1319], 0.08, "square", 0.25);
+        break;
       case "over":
         this.arpeggio([523, 415, 330, 262], 0.14, "triangle", 0.35);
         break;
