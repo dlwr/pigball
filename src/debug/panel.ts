@@ -10,6 +10,7 @@ export const mountDebugPanel = (params: PhysicsParams, stats: { fps: number; ste
   gui.add(params, "friction", 0, 1, 0.01);
   gui.add(params, "restingSpeed", 0, 30, 0.5);
   gui.add(params, "flipperSpeed", 5, 80, 0.5);
+  gui.add(params, "flipperGrace", 0, 2, 0.05);
   gui.add(params, "plungerStiffness", 500, 10000, 50);
   gui.add(params, "plungerPullRate", 0.2, 5, 0.1);
   gui.add(params, "slingKick", 0, 300, 1);

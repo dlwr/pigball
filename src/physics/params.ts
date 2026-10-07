@@ -6,6 +6,7 @@ export interface PhysicsParams {
   friction: number;
   restingSpeed: number;
   flipperSpeed: number;
+  flipperGrace: number;
   plungerStiffness: number;
   plungerPullRate: number;
   slingKick: number;
@@ -20,6 +21,7 @@ export const createParams = (): PhysicsParams => ({
   friction: 0.15,
   restingSpeed: 6,
   flipperSpeed: 35,
+  flipperGrace: 0.5,
   plungerStiffness: 4000,
   plungerPullRate: 1.2,
   slingKick: 90,

@@ -308,14 +308,16 @@ export class World {
     const tipY = flipper.y + Math.sin(flipper.angle) * flipper.length;
     const hit = closestOnCapsule(ball.x, ball.y, flipper.x, flipper.y, tipX, tipY, flipper.baseRadius, flipper.tipRadius);
     const surface = hit.dist - hit.radius;
-    if (surface >= ball.r || hit.dist === 0) return;
+    const grace = flipper.omega !== 0 ? this.params.flipperGrace : 0;
+    if (surface >= ball.r + grace || hit.dist === 0) return;
     const nx = (ball.x - hit.cx) / hit.dist;
     const ny = (ball.y - hit.cy) / hit.dist;
     const px = hit.cx + nx * hit.radius - flipper.x;
     const py = hit.cy + ny * hit.radius - flipper.y;
     const svx = -flipper.omega * py;
     const svy = flipper.omega * px;
-    const impact = this.resolve(ball, nx, ny, ball.r - surface, svx, svy, this.params.flipperRestitution);
+    if (surface >= ball.r && svx * nx + svy * ny <= 0) return;
+    const impact = this.resolve(ball, nx, ny, Math.max(0, ball.r - surface), svx, svy, this.params.flipperRestitution);
     this.emitContact(flipper.id, impact, hit.cx + nx * hit.radius, hit.cy + ny * hit.radius, false);
   }
 
