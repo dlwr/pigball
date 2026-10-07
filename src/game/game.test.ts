@@ -443,6 +443,47 @@ describe("Game", () => {
     });
   });
 
+  describe("ボーナス", () => {
+    const hitBumper = (game: Game) => {
+      const bumper = game.layout.bumpers[0];
+      place(game, bumper.x, bumper.y + bumper.r + 2, 0, -30);
+      run(game, 0.1);
+    };
+
+    it("ドレインするとそのボールで貯めたボーナスが加算される", () => {
+      const game = newGame();
+      hitBumper(game);
+      drain(game);
+      expect(game.score).toBe(100 + 50);
+    });
+
+    it("ボーナスにも倍率が掛かる", () => {
+      const game = newGame();
+      game.multiplier = 3;
+      hitBumper(game);
+      const before = game.score;
+      drain(game);
+      expect(game.score - before).toBe(50 * 3);
+    });
+
+    it("チルトしたボールのボーナスは入らない", () => {
+      const game = newGame();
+      hitBumper(game);
+      for (let i = 0; i < 6; i++) game.nudge(1, 0);
+      drain(game);
+      expect(game.score).toBe(100);
+    });
+
+    it("次のボールでは0から貯め直す", () => {
+      const game = newGame();
+      hitBumper(game);
+      drain(game);
+      const before = game.score;
+      drain(game);
+      expect(game.score).toBe(before);
+    });
+  });
+
   describe("チルト", () => {
     it("短時間に揺らしすぎるとフリッパーが効かなくなる", () => {
       const game = newGame();
