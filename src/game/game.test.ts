@@ -655,6 +655,30 @@ describe("Game", () => {
       expect(game.score).toBe(100);
     });
 
+    it("ドレインしたときのボーナスに、当てたものごとの回数が付く", () => {
+      const game = newGame();
+      hitBumper(game);
+      run(game, 0.2);
+      hitBumper(game);
+      place(game, 23, DRAIN_Y - 1, 0, -10);
+      game.drainEvents();
+      game.step(DT);
+      const tally = game.drainEvents().find((e) => e.kind === "bonus")?.tally;
+      expect(tally?.lines.find((line) => line.kind === "bumper")?.count).toBe(2);
+    });
+
+    it("ボーナスの合計は実際に増えた点と同じ", () => {
+      const game = newGame();
+      game.multiplier = 3;
+      hitBumper(game);
+      const before = game.score;
+      place(game, 23, DRAIN_Y - 1, 0, -10);
+      game.drainEvents();
+      game.step(DT);
+      const tally = game.drainEvents().find((e) => e.kind === "bonus")?.tally;
+      expect(tally?.total).toBe(game.score - before);
+    });
+
     it("次のボールでは0から貯め直す", () => {
       const game = newGame();
       hitBumper(game);
