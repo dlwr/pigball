@@ -74,7 +74,7 @@ export class Trail {
       this.positions[o + 3] = p.x + dy * w;
       this.positions[o + 4] = p.y - dx * w;
       this.positions[o + 5] = z;
-      this.alphas[i * 2] = this.alphas[i * 2 + 1] = t * t * intensity * 0.9;
+      this.alphas[i * 2] = this.alphas[i * 2 + 1] = t * t * intensity * 0.6;
     }
     this.geometry.attributes.position.needsUpdate = true;
     this.geometry.attributes.alpha.needsUpdate = true;
@@ -135,7 +135,7 @@ export class Sparks {
       this.velocities[i * 2 + 1] *= drag;
       this.positions[i * 3] += this.velocities[i * 2] * dt;
       this.positions[i * 3 + 1] += this.velocities[i * 2 + 1] * dt;
-      const k = Math.max(0, this.life[i]) * 3;
+      const k = Math.max(0, this.life[i]) * 1.6;
       this.colors[i * 3] = this.baseColors[i * 3] * k;
       this.colors[i * 3 + 1] = this.baseColors[i * 3 + 1] * k;
       this.colors[i * 3 + 2] = this.baseColors[i * 3 + 2] * k;

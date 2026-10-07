@@ -106,7 +106,7 @@ export class TableRenderer {
     this.composer.addPass(
       new EffectPass(
         this.camera,
-        new BloomEffect({ intensity: 1.6, luminanceThreshold: 0.55, luminanceSmoothing: 0.2, mipmapBlur: true, radius: 0.7 }),
+        new BloomEffect({ intensity: 0.6, luminanceThreshold: 0.8, luminanceSmoothing: 0.2, mipmapBlur: true, radius: 0.55 }),
         new VignetteEffect({ darkness: 0.45, offset: 0.35 }),
         new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
       ),
@@ -290,7 +290,7 @@ export class TableRenderer {
     const { game } = this;
     for (const glow of this.glows.values()) {
       glow.value *= Math.exp(-dt * 9);
-      glow.material.emissiveIntensity = glow.base + glow.value * glow.boost;
+      glow.material.emissiveIntensity = glow.base + glow.value * glow.boost * 0.6;
       if (glow.react) glow.react(glow.value);
       else if (glow.mesh) glow.mesh.scale.z = 1 - glow.value * 0.35;
     }
@@ -312,26 +312,26 @@ export class TableRenderer {
     this.laneMaterials.forEach((material, i) => {
       const lit = game.litLanes[i] || i === skillChase;
       material.emissive.setHex(lit ? PALETTE.laneOn : PALETTE.laneOff);
-      material.emissiveIntensity = lit ? 2.2 : 0.4;
+      material.emissiveIntensity = lit ? 1.3 : 0.3;
     });
     this.spinner.rotation.x = game.spinnerAngle;
     const spin = dt > 0 ? (game.spinnerAngle - this.lastSpinnerAngle) / dt : 0;
     this.lastSpinnerAngle = game.spinnerAngle;
     this.spinnerSpeed += (spin - this.spinnerSpeed) * Math.min(1, dt * 10);
-    this.spinnerGlow.emissiveIntensity = 0.3 + Math.min(3, this.spinnerSpeed / 10);
+    this.spinnerGlow.emissiveIntensity = 0.2 + Math.min(1.6, this.spinnerSpeed / 15);
     const plunger = game.world.plunger;
     if (plunger) this.plunger.position.y = plunger.y - 2.5;
     this.skin.emissiveIntensity = 0.025 + 0.02 * Math.sin(this.time * 0.9);
     this.mouthOpen *= Math.exp(-dt * 5);
     this.mouth.open(this.mouthOpen > 0.6 ? 1 : this.mouthOpen * 1.6 * Math.abs(Math.cos(this.time * 18)));
-    const blink = Math.sin(this.time * 12) > 0 ? 2.5 : 0.2;
-    for (const side of ["left", "right"] as const) this.kickbackLights[side].emissiveIntensity = game.kickbacksLit[side] ? 2 : 0.05;
-    this.saveLight.emissiveIntensity = game.ballSaveActive ? blink : game.extraBalls > 0 ? 1.6 : 0.05;
+    const blink = Math.sin(this.time * 12) > 0 ? 1.4 : 0.15;
+    for (const side of ["left", "right"] as const) this.kickbackLights[side].emissiveIntensity = game.kickbacksLit[side] ? 1.2 : 0.05;
+    this.saveLight.emissiveIntensity = game.ballSaveActive ? blink : game.extraBalls > 0 ? 1 : 0.05;
   }
 
   private addLights(): void {
     this.scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x0b0d12, 0.15));
-    const key = new THREE.DirectionalLight(0xfff1e0, 1.4);
+    const key = new THREE.DirectionalLight(0xfff1e0, 1.1);
     key.position.set(TABLE_WIDTH * 0.2, TABLE_HEIGHT * 0.75, 40);
     key.target.position.set(TABLE_WIDTH / 2, TABLE_HEIGHT / 2, 0);
     key.castShadow = true;
@@ -383,7 +383,7 @@ export class TableRenderer {
       const lips = createLips(seg);
       this.scene.add(lips.object);
       const id = seg.id.replace(/-\d+$/, "");
-      this.glows.set(id, { material: lips.material, base: 0.3, boost: 2.5, value: 0, react: lips.react });
+      this.glows.set(id, { material: lips.material, base: 0.15, boost: 2.5, value: 0, react: lips.react });
       const side = id.slice(-1);
       const back = walls.filter((w) => w.id.startsWith(`sling-back-${side}`)).flatMap((w) => [[w.ax, w.ay], [w.bx, w.by]]);
       const cx = back.reduce((sum, [px]) => sum + px, 0) / back.length;
