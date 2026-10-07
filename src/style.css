@@ -473,3 +473,12 @@ body {
     transform: translate(-50%, 22px) scale(1);
   }
 }
+
+.shop-row.rare strong {
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(255, 224, 102, 0.4);
+}
+
+.shop-row.rare {
+  border-bottom-color: rgba(255, 224, 102, 0.35);
+}
