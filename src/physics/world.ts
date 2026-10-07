@@ -15,6 +15,22 @@ export interface Ball {
   frozen: boolean;
 }
 
+export interface MoverDef {
+  id: string;
+  ax: number;
+  bx: number;
+  y: number;
+  r: number;
+  period: number;
+}
+
+export interface Mover extends MoverDef {
+  x: number;
+  vx: number;
+  phase: number;
+  enabled: boolean;
+}
+
 export interface HoleDef {
   id: string;
   x: number;
@@ -132,6 +148,7 @@ export interface WorldSnapshot {
   balls: { ball: Ball; state: Ball }[];
   flippers: Flipper[];
   rotors: Rotor[];
+  movers: Mover[];
   plunger: Plunger | null;
   recharges: number[];
 }
@@ -151,6 +168,7 @@ export class World {
   readonly flippers: Flipper[] = [];
   readonly rotors: Rotor[] = [];
   readonly holes: HoleDef[] = [];
+  readonly movers: Mover[] = [];
   readonly sensors: SensorDef[] = [];
   readonly layerGates: LayerGateDef[] = [];
   plunger: Plunger | null = null;
@@ -186,6 +204,12 @@ export class World {
     const flipper = { ...def, angle: def.restAngle, prevAngle: def.restAngle, omega: 0, pressed: false };
     this.flippers.push(flipper);
     return flipper;
+  }
+
+  addMover(def: MoverDef): Mover {
+    const mover = { ...def, x: (def.ax + def.bx) / 2, vx: 0, phase: 0, enabled: true };
+    this.movers.push(mover);
+    return mover;
   }
 
   addHole(def: HoleDef): HoleDef {
@@ -226,6 +250,7 @@ export class World {
       balls: this.balls.map((ball) => ({ ball, state: { ...ball } })),
       flippers: this.flippers.map((flipper) => ({ ...flipper })),
       rotors: this.rotors.map((rotor) => ({ ...rotor })),
+      movers: this.movers.map((mover) => ({ ...mover })),
       plunger: this.plunger && { ...this.plunger },
       recharges: this.bumpers.map((bumper) => bumper.recharge),
     };
@@ -236,6 +261,7 @@ export class World {
     for (const { ball, state } of snapshot.balls) this.balls.push(Object.assign(ball, state));
     snapshot.flippers.forEach((state, i) => Object.assign(this.flippers[i], state));
     snapshot.rotors.forEach((state, i) => Object.assign(this.rotors[i], state));
+    snapshot.movers.forEach((state, i) => Object.assign(this.movers[i], state));
     if (this.plunger && snapshot.plunger) Object.assign(this.plunger, snapshot.plunger);
     snapshot.recharges.forEach((recharge, i) => (this.bumpers[i].recharge = recharge));
   }
@@ -250,6 +276,7 @@ export class World {
     this.stepDt = dt;
     for (const bumper of this.bumpers) bumper.recharge = Math.max(0, bumper.recharge - dt);
     for (const flipper of this.flippers) this.stepFlipper(flipper, dt);
+    for (const mover of this.movers) this.stepMover(mover, dt);
     for (const rotor of this.rotors) {
       rotor.prevAngle = rotor.angle;
       rotor.angle += rotor.omega * dt;
@@ -339,6 +366,7 @@ export class World {
     for (const bumper of this.bumpers) this.collideBumper(ball, bumper);
     for (const flipper of this.flippers) this.collideFlipper(ball, flipper);
     for (const rotor of this.rotors) this.collideRotor(ball, rotor);
+    for (const mover of this.movers) if (mover.enabled) this.collideMover(ball, mover);
     if (this.plunger) this.collidePlunger(ball, this.plunger);
     for (const sensor of this.sensors) this.checkSensor(ball, sensor);
     for (const hole of this.holes) this.checkHole(ball, hole);
@@ -406,6 +434,25 @@ export class World {
     if (surface >= ball.r && svx * nx + svy * ny <= 0) return;
     const impact = this.resolve(ball, nx, ny, Math.max(0, ball.r - surface), svx, svy, this.params.flipperRestitution);
     this.emitContact(flipper.id, impact, hit.cx + nx * hit.radius, hit.cy + ny * hit.radius, false);
+  }
+
+  private stepMover(mover: Mover, dt: number): void {
+    if (mover.period <= 0) return;
+    const half = (mover.bx - mover.ax) / 2;
+    const w = (Math.PI * 2) / mover.period;
+    mover.phase = (mover.phase + w * dt) % (Math.PI * 2);
+    mover.x = (mover.ax + mover.bx) / 2 + half * Math.sin(mover.phase);
+    mover.vx = half * w * Math.cos(mover.phase);
+  }
+
+  private collideMover(ball: Ball, mover: Mover): void {
+    const dx = ball.x - mover.x;
+    const dy = ball.y - mover.y;
+    const dist = Math.hypot(dx, dy);
+    const minDist = ball.r + mover.r;
+    if (dist >= minDist || dist === 0) return;
+    const impact = this.resolve(ball, dx / dist, dy / dist, minDist - dist, mover.vx, 0, this.params.wallRestitution);
+    this.emitContact(mover.id, impact, mover.x + (dx / dist) * mover.r, mover.y + (dy / dist) * mover.r, false);
   }
 
   private collideRotor(ball: Ball, rotor: Rotor): void {

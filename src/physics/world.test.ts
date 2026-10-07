@@ -76,6 +76,72 @@ describe("World", () => {
     });
   });
 
+  describe("動く的", () => {
+    const moverDef = { id: "bank", ax: 15, bx: 35, y: 50, r: 2, period: 4 };
+
+    const zeroGravityWorld = () => {
+      const params = createParams();
+      params.gravity = 0;
+      return new World(params);
+    };
+
+    it("決まった範囲を往復する", () => {
+      const world = zeroGravityWorld();
+      const mover = world.addMover(moverDef);
+      const xs: number[] = [];
+      for (let i = 0; i < 4000; i++) {
+        world.step(DT);
+        xs.push(mover.x);
+      }
+      expect([Math.min(...xs) >= 15, Math.max(...xs) <= 35, Math.max(...xs) - Math.min(...xs) > 18]).toEqual([true, true, true]);
+    });
+
+    it("動いている的は進む先にあるボールを押し出す", () => {
+      const world = zeroGravityWorld();
+      const mover = world.addMover(moverDef);
+      const ball = world.spawnBall(mover.x + mover.r + 1.35 + 0.3, mover.y);
+      run(world, 0.3);
+      expect(ball.vx).toBeGreaterThan(10);
+    });
+
+    it("止まっている的はそばのボールを動かさない", () => {
+      const world = zeroGravityWorld();
+      const mover = world.addMover({ ...moverDef, period: 0 });
+      const ball = world.spawnBall(mover.x + mover.r + 1.35 + 0.3, mover.y);
+      run(world, 0.3);
+      expect(ball.vx).toBe(0);
+    });
+
+    it("消している間は当たらない", () => {
+      const world = zeroGravityWorld();
+      const mover = world.addMover({ ...moverDef, period: 0 });
+      mover.enabled = false;
+      const ball = world.spawnBall(25, 44);
+      ball.vy = 60;
+      run(world, 0.3);
+      expect(ball.y).toBeGreaterThan(55);
+    });
+
+    it("当たると接触イベントを出す", () => {
+      const world = zeroGravityWorld();
+      world.addMover({ ...moverDef, period: 0 });
+      const ball = world.spawnBall(25, 44);
+      ball.vy = 60;
+      run(world, 0.3);
+      expect(world.drainEvents().some((e) => e.type === "contact" && e.id === "bank")).toBe(true);
+    });
+
+    it("スナップショットを復元すると位置が戻る", () => {
+      const world = zeroGravityWorld();
+      const mover = world.addMover(moverDef);
+      const snapshot = world.snapshot();
+      const before = mover.x;
+      run(world, 0.5);
+      world.restore(snapshot);
+      expect(mover.x).toBe(before);
+    });
+  });
+
   describe("穴と固定", () => {
     const zeroGravityWorld = () => {
       const params = createParams();
