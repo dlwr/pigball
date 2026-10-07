@@ -182,6 +182,7 @@ export class Game {
   spinnerAngle = 0;
   private spinnerVelocity = 0;
   private ballSaveTime = 0;
+  private ballSaveUsed = false;
   private exitedShooterLane = false;
   private rampCombo = 0;
   private rampComboTime = 0;
@@ -404,6 +405,7 @@ export class Game {
 
   private serveBall(): void {
     this.placeBallInShooterLane();
+    this.ballSaveUsed = false;
     this.bonus = 0;
     this.bonusCounts = { bumper: 0, ramp: 0, target: 0, rollover: 0 };
     this.multiplier = 1;
@@ -661,7 +663,7 @@ export class Game {
   private checkLaunched(): void {
     if (this.state !== "ready" || !this.world.balls.some((ball) => ball.x < PLAYFIELD_WIDTH)) return;
     this.state = "playing";
-    this.ballSaveTime = this.exitedShooterLane ? this.rules.ballSaveSeconds : 0;
+    this.ballSaveTime = this.exitedShooterLane && !this.ballSaveUsed ? this.rules.ballSaveSeconds : 0;
     this.exitedShooterLane = false;
   }
 
@@ -685,6 +687,7 @@ export class Game {
       if (this.ballSaveActive && !this.tilted) {
         this.emit("save", ball.x, 0, 1);
         this.ballSaveTime = 0;
+        this.ballSaveUsed = true;
         this.state = "ready";
         this.placeBallInShooterLane();
         continue;

@@ -153,6 +153,36 @@ describe("Game", () => {
       expect(game.ballsLeft).toBe(3);
     });
 
+    it("ボールセーブで戻ったボールを打ち直しても、もうボールセーブは付かない", () => {
+      const game = newGame();
+      const launch = () => {
+        game.setPlunger(true);
+        run(game, 1.2);
+        game.setPlunger(false);
+        run(game, 1.5);
+      };
+      launch();
+      drain(game);
+      launch();
+      expect(game.ballSaveActive).toBe(false);
+    });
+
+    it("次のボールではまたボールセーブが付く", () => {
+      const game = newGame();
+      const launch = () => {
+        game.setPlunger(true);
+        run(game, 1.2);
+        game.setPlunger(false);
+        run(game, 1.5);
+      };
+      launch();
+      drain(game);
+      launch();
+      drain(game);
+      launch();
+      expect([game.ballsLeft, game.ballSaveActive]).toEqual([2, true]);
+    });
+
     it("ボールセーブが切れていればボール数を1つ減らす", () => {
       const game = newGame();
       drain(game);
