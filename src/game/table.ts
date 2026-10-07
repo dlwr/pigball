@@ -104,7 +104,7 @@ export const createLayout = (): TableLayout => ({
   rollovers: [15, 21, 27].map((x, i) => ({ id: `rollover-${i}`, ax: x, ay: 89, bx: x + 6, by: 89 })),
   spinner: { id: "spinner", ax: 29, ay: 78, bx: 35, by: 78 },
   shooterExit: { id: "shooter-exit", ax: 46, ay: 78, bx: 50, by: 78 },
-  rotor: { id: "rotor", x: 23, y: 36, arms: 4, armLength: 2.8, armRadius: 0.45, inertia: 30, damping: 0.8, restitution: 0.5 },
+  rotor: { id: "rotor", x: 23, y: 36, arms: 4, armLength: 2.8, armRadius: 0.6, inertia: 12, damping: 0.8, restitution: 0.25 },
   kickbacks: {
     left: { id: "kickback-left", ax: 0, ay: 10, bx: 4, by: 10 },
     right: { id: "kickback-right", ax: 42, ay: 10, bx: 46, by: 10 },
