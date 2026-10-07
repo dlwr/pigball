@@ -7,7 +7,7 @@ export interface ScoreStorage {
   save(score: number): void;
 }
 
-export type GameState = "ready" | "playing" | "over";
+export type GameState = "ready" | "playing" | "over" | "cleared";
 
 export type GameEventKind =
   | "bumper"
@@ -41,7 +41,8 @@ export type GameEventKind =
   | "drain"
   | "bonus"
   | "tilt"
-  | "over";
+  | "over"
+  | "stageClear";
 
 export interface GameEvent {
   kind: GameEventKind;
@@ -96,6 +97,26 @@ const SCORES = {
   skillShot: 10000,
 };
 
+export type ScoreKind = keyof typeof SCORES | "spinner" | "bonus" | "misc";
+
+export interface Modifier {
+  id: string;
+  layout?(layout: TableLayout): void;
+  params?(params: PhysicsParams): void;
+  start?(game: Game): void;
+  score?(kind: ScoreKind, points: number, game: Game): number;
+  rampWorth?(game: Game): number;
+}
+
+export interface GameRules {
+  balls: number;
+  ballSaveSeconds: number;
+  target: number | null;
+  modifiers: Modifier[];
+}
+
+const DEFAULT_RULES: GameRules = { balls: BALLS_PER_GAME, ballSaveSeconds: BALL_SAVE_SECONDS, target: null, modifiers: [] };
+
 const BONUS = {
   bumper: 50,
   target: 200,
@@ -123,17 +144,19 @@ const emptyStats = (): GameStats => ({ ramps: 0, banks: 0, jackpots: 0, skillSho
 export class Game {
   readonly world: World;
   readonly layout: TableLayout = createLayout();
+  readonly rules: GameRules;
   state: GameState = "ready";
   score = 0;
   highScore: number;
   newHighScore = false;
   stats = emptyStats();
-  ballsLeft = BALLS_PER_GAME;
+  ballsLeft: number;
   extraBalls = 0;
   bonus = 0;
   inMultiball = false;
   piggyHits = 0;
   rampsTowardMultiball = 0;
+  rampsTowardExtraBall = 0;
   kickbacksLit: Record<Side, boolean> = { left: true, right: false };
   multiplier = 1;
   litLanes = [false, false, false];
@@ -163,9 +186,16 @@ export class Game {
   constructor(
     params: PhysicsParams,
     private readonly storage: ScoreStorage,
+    rules: Partial<GameRules> = {},
   ) {
+    this.rules = { ...DEFAULT_RULES, ...rules };
+    const { modifiers } = this.rules;
+    this.ballsLeft = this.rules.balls;
     this.highScore = storage.load();
-    this.world = new World(params);
+    for (const modifier of modifiers) modifier.layout?.(this.layout);
+    const tuned = modifiers.some((m) => m.params) ? { ...params } : params;
+    for (const modifier of modifiers) modifier.params?.(tuned);
+    this.world = new World(tuned);
     const { layout, world } = this;
     for (const def of [...layout.walls, ...layout.slings, ...layout.bellies, ...layout.ramp.rails]) world.addSegment(def);
     world.addLayerGate(layout.ramp.entry);
@@ -181,6 +211,7 @@ export class Game {
     world.setPlunger(layout.plunger);
     for (const def of [...layout.rollovers, layout.spinner, layout.shooterExit, layout.kickbacks.left, layout.kickbacks.right]) world.addSensor(def);
     this.serveBall();
+    for (const modifier of modifiers) modifier.start?.(this);
   }
 
   get ballSaveActive(): boolean {
@@ -233,12 +264,17 @@ export class Game {
   }
 
   addScore(points: number): void {
-    this.score += points * this.multiplier;
+    this.award("misc", points);
+  }
+
+  private award(kind: ScoreKind, points: number): void {
+    const base = this.rules.modifiers.reduce((p, m) => (m.score ? m.score(kind, p, this) : p), points);
+    this.score += base * this.multiplier;
   }
 
   restart(): void {
     this.score = 0;
-    this.ballsLeft = BALLS_PER_GAME;
+    this.ballsLeft = this.rules.balls;
     this.extraBalls = 0;
     this.stats = emptyStats();
     this.newHighScore = false;
@@ -249,6 +285,7 @@ export class Game {
     this.piggyRespawnTime = 0;
     this.world.movers[0].enabled = true;
     this.rampsTowardMultiball = 0;
+    this.rampsTowardExtraBall = 0;
     this.kickbacksLit = { left: true, right: false };
     this.spinsTowardRightKickback = 0;
     this.pendingLaunches = 0;
@@ -267,6 +304,7 @@ export class Game {
   }
 
   step(dt: number): void {
+    if (this.state === "cleared") return;
     const snapshot = this.world.snapshot();
     this.world.step(dt);
     const events = this.world.drainEvents();
@@ -283,6 +321,16 @@ export class Game {
     this.checkDrain();
     this.stepAutoLaunch(dt);
     if (this.inMultiball && this.ballsInPlay <= 1) this.inMultiball = false;
+    this.checkTarget();
+  }
+
+  private checkTarget(): void {
+    const { target } = this.rules;
+    if (target === null || this.score < target || this.state === "over") return;
+    this.state = "cleared";
+    this.leftFlipper.pressed = false;
+    this.rightFlipper.pressed = false;
+    this.emit("stageClear", 23, 50, 1);
   }
 
   private record(entry: HistoryEntry): void {
@@ -360,7 +408,7 @@ export class Game {
     }
     if (event.type === "hole") {
       if (id === "mud") {
-        this.addScore(SCORES.mud);
+        this.award("mud", SCORES.mud);
         this.emit("mud", x, y, speed);
       } else this.captureInNavel(event.ball);
       return;
@@ -383,19 +431,19 @@ export class Game {
       return;
     }
     if (id.startsWith("bumper")) {
-      this.addScore(SCORES.bumper);
+      this.award("bumper", SCORES.bumper);
       this.bonus += BONUS.bumper;
       this.emit("bumper", x, y, speed, id);
     } else if (id === "piggy") {
       this.hitPiggy(x, y, speed);
     } else if (id.startsWith("belly")) {
-      this.addScore(SCORES.belly);
+      this.award("belly", SCORES.belly);
       this.emit("belly", x, y, speed, id);
     } else if (id === "rotor") {
-      this.addScore(SCORES.rotor);
+      this.award("rotor", SCORES.rotor);
       this.emit("rotor", x, y, speed, id);
     } else if (id.startsWith("sling")) {
-      this.addScore(SCORES.sling);
+      this.award("sling", SCORES.sling);
       this.emit("sling", x, y, speed, id);
     } else if (id.startsWith("target")) {
       this.dropTarget(id, x, y, speed);
@@ -409,10 +457,10 @@ export class Game {
   }
 
   private hitPiggy(x: number, y: number, speed: number): void {
-    this.addScore(SCORES.piggy);
+    this.award("piggy", SCORES.piggy);
     this.emit("piggy", x, y, speed);
     if (++this.piggyHits < PIGGY_HITS_TO_BREAK) return;
-    this.addScore(SCORES.piggyBreak);
+    this.award("piggyBreak", SCORES.piggyBreak);
     this.world.movers[0].enabled = false;
     this.piggyRespawnTime = PIGGY_RESPAWN_SECONDS;
     this.emit("piggyBreak", this.world.movers[0].x, this.world.movers[0].y, 1);
@@ -439,7 +487,7 @@ export class Game {
     this.navelTime = NAVEL_HOLD_SECONDS;
     Object.assign(ball, { x: navel.x, y: navel.y, prevX: navel.x, prevY: navel.y, vx: 0, vy: 0, frozen: true });
     this.skillShotLit = false;
-    this.addScore(SCORES.navel);
+    this.award("navel", SCORES.navel);
     this.emit("navelIn", navel.x, navel.y, 1);
   }
 
@@ -467,18 +515,26 @@ export class Game {
   private completeRamp(x: number, y: number): void {
     this.rampCombo = this.rampComboTime > 0 ? this.rampCombo + 1 : 1;
     this.rampComboTime = RAMP_COMBO_SECONDS;
-    this.addScore(SCORES.ramp * this.rampCombo);
+    this.award("ramp", SCORES.ramp * this.rampCombo);
     this.bonus += BONUS.ramp;
     this.emit("ramp", x, y, this.rampCombo);
     if (this.inMultiball) {
-      this.addScore(SCORES.jackpot);
+      this.award("jackpot", SCORES.jackpot);
       this.stats.jackpots++;
       this.emit("jackpot", x, y, 1);
-    } else if (++this.rampsTowardMultiball >= RAMPS_FOR_MULTIBALL && this.state === "playing") {
-      this.rampsTowardMultiball = 0;
-      this.startMultiball(x, y);
     }
-    if (++this.stats.ramps === RAMPS_FOR_EXTRA_BALL) {
+    const worth = this.rules.modifiers.reduce((w, m) => (m.rampWorth ? w * m.rampWorth(this) : w), 1);
+    if (!this.inMultiball) {
+      this.rampsTowardMultiball += worth;
+      if (this.rampsTowardMultiball >= RAMPS_FOR_MULTIBALL && this.state === "playing") {
+        this.rampsTowardMultiball = 0;
+        this.startMultiball(x, y);
+      }
+    }
+    this.stats.ramps++;
+    const before = this.rampsTowardExtraBall;
+    this.rampsTowardExtraBall += worth;
+    if (before < RAMPS_FOR_EXTRA_BALL && this.rampsTowardExtraBall >= RAMPS_FOR_EXTRA_BALL) {
       this.extraBalls++;
       this.emit("extraBall", x, y, 1);
     }
@@ -488,11 +544,11 @@ export class Game {
     const target = this.targets.find((t) => t.id === id);
     if (!target?.enabled) return;
     target.enabled = false;
-    this.addScore(SCORES.target);
+    this.award("target", SCORES.target);
     this.bonus += BONUS.target;
     this.emit("target", x, y, speed, id);
     if (this.targets.every((t) => !t.enabled)) {
-      this.addScore(SCORES.bank);
+      this.award("bank", SCORES.bank);
       this.stats.banks++;
       this.targetResetTime = TARGET_RESET_SECONDS;
       this.kickbacksLit.left = true;
@@ -509,7 +565,7 @@ export class Game {
   private passLane(index: number, x: number, y: number, speed: number): void {
     if (this.skillShotLit) {
       this.skillShotLit = false;
-      this.addScore(SCORES.skillShot);
+      this.award("skillShot", SCORES.skillShot);
       this.stats.skillShots++;
       this.emit("skill", x, y, speed);
     }
@@ -519,11 +575,11 @@ export class Game {
   private lightLane(index: number, x: number, y: number, speed: number): void {
     if (this.litLanes[index]) return;
     this.litLanes[index] = true;
-    this.addScore(SCORES.rollover);
+    this.award("rollover", SCORES.rollover);
     this.bonus += BONUS.rollover;
     this.emit("rollover", x, y, speed, `rollover-${index}`);
     if (this.litLanes.every(Boolean)) {
-      this.addScore(SCORES.lanes);
+      this.award("lanes", SCORES.lanes);
       this.multiplier = Math.min(MAX_MULTIPLIER, this.multiplier + 1);
       this.litLanes = [false, false, false];
       this.emit("lanes", x, y, speed);
@@ -545,7 +601,7 @@ export class Game {
     this.spinnerVelocity *= Math.exp(-SPINNER_DECAY * dt);
     const turns = Math.floor(this.spinnerAngle / (Math.PI * 2)) - before;
     if (turns <= 0) return;
-    this.addScore(SPINNER_POINTS_PER_TURN * turns);
+    this.award("spinner", SPINNER_POINTS_PER_TURN * turns);
     if (!this.kickbacksLit.right) this.spinsTowardRightKickback += turns;
     if (this.spinsTowardRightKickback >= SPINS_FOR_RIGHT_KICKBACK) {
       this.kickbacksLit.right = true;
@@ -559,7 +615,7 @@ export class Game {
   private checkLaunched(): void {
     if (this.state !== "ready" || !this.world.balls.some((ball) => ball.x < PLAYFIELD_WIDTH)) return;
     this.state = "playing";
-    this.ballSaveTime = this.exitedShooterLane ? BALL_SAVE_SECONDS : 0;
+    this.ballSaveTime = this.exitedShooterLane ? this.rules.ballSaveSeconds : 0;
     this.exitedShooterLane = false;
   }
 
@@ -609,7 +665,7 @@ export class Game {
 
   private awardBonus(): void {
     if (this.tilted || this.bonus === 0) return;
-    this.addScore(this.bonus);
+    this.award("bonus", this.bonus);
     this.emit("bonus", 23, 30, this.bonus * this.multiplier);
   }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createParams } from "../physics/params";
 import { type Ball, LAYER_FLOOR } from "../physics/world";
-import { Game, type GameEvent, type ScoreStorage } from "./game";
+import { Game, type GameEvent, type GameRules, type ScoreStorage } from "./game";
 import { DRAIN_Y, SHOOTER_X } from "./table";
 
 const DT = 1 / 960;
@@ -21,6 +21,8 @@ const run = (game: Game, seconds: number) => {
 };
 
 const newGame = (storage = memoryStorage()) => new Game(createParams(), storage);
+
+const gameWith = (rules: Partial<GameRules>) => new Game(createParams(), memoryStorage(), rules);
 
 const ball = (game: Game) => game.world.balls[0];
 
@@ -1047,6 +1049,86 @@ describe("Game", () => {
       endGame(game);
       game.restart();
       expect([game.stats.ramps, game.newHighScore]).toEqual([0, false]);
+    });
+  });
+
+  describe("ルールの差し替え", () => {
+    const hitBumper = (game: Game) => {
+      const bumper = game.layout.bumpers[0];
+      place(game, bumper.x, bumper.y + bumper.r + 2, 0, -30);
+      run(game, 0.1);
+    };
+
+    it("ボール数を指定できる", () => {
+      const game = gameWith({ balls: 2 });
+      expect(game.ballsLeft).toBe(2);
+    });
+
+    it("目標スコアに届くとステージクリアになる", () => {
+      const game = gameWith({ target: 300 });
+      game.addScore(300);
+      game.step(DT);
+      expect(game.state).toBe("cleared");
+    });
+
+    it("ステージクリアのイベントは一度だけ出る", () => {
+      const game = gameWith({ target: 300 });
+      game.addScore(300);
+      game.step(DT);
+      game.step(DT);
+      game.drainEvents();
+      game.addScore(300);
+      game.step(DT);
+      expect(game.drainEvents().filter((e) => e.kind === "stageClear")).toEqual([]);
+    });
+
+    it("ステージクリアしたら台は止まる", () => {
+      const game = gameWith({ target: 300 });
+      game.addScore(300);
+      game.step(DT);
+      const y = ball(game).y;
+      run(game, 0.5);
+      expect(ball(game).y).toBe(y);
+    });
+
+    it("目標スコアがなければクリアにならない", () => {
+      const game = newGame();
+      game.addScore(1_000_000);
+      game.step(DT);
+      expect(game.state).not.toBe("cleared");
+    });
+
+    it("得点を変える効果を付けられる", () => {
+      const game = gameWith({ modifiers: [{ id: "double-bumper", score: (kind, points) => (kind === "bumper" ? points * 2 : points) }] });
+      hitBumper(game);
+      expect(game.score).toBe(200);
+    });
+
+    it("台の形を変える効果を付けられる", () => {
+      const game = gameWith({ modifiers: [{ id: "long-flippers", layout: (layout) => (layout.flippers.left.length = 8) }] });
+      expect(game.world.flippers[0].length).toBe(8);
+    });
+
+    it("物理を変える効果を付けられる", () => {
+      const game = gameWith({ modifiers: [{ id: "moon", params: (params) => (params.gravity = 80) }] });
+      expect(game.world.params.gravity).toBe(80);
+    });
+
+    it("物理を変える効果は元のパラメータを書き換えない", () => {
+      const params = createParams();
+      new Game(params, memoryStorage(), { modifiers: [{ id: "moon", params: (p) => (p.gravity = 80) }] });
+      expect(params.gravity).toBe(150);
+    });
+
+    it("開始時に効く効果を付けられる", () => {
+      const game = gameWith({ modifiers: [{ id: "both-kickbacks", start: (g) => (g.kickbacksLit.right = true) }] });
+      expect(game.kickbacksLit.right).toBe(true);
+    });
+
+    it("ランプ1回の数え方を変える効果を付けられる", () => {
+      const game = gameWith({ modifiers: [{ id: "double-ramp", rampWorth: () => 2 }] });
+      completeRampsWithoutCombo(game, 1);
+      expect(game.rampsTowardMultiball).toBe(2);
     });
   });
 
