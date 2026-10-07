@@ -57,6 +57,7 @@ export const createLayout = (): TableLayout => ({
     ...polyline("outer", [[0, -5], ...arc(25, 75, 25, Math.PI, 0, 28), [50, -5]]),
     ...polyline("shooter-wall", [[46, -5], [46, 80]]),
     { id: "shooter-gate", ax: 46, ay: 80, bx: 50, by: 83.5, kind: "wall", oneWay: true },
+    { id: "kickback-guide", ax: 4.5, ay: 42, bx: 0, by: 34, kind: "wall", oneWay: true },
     ...polyline("inlane-l", leftInlane),
     ...polyline("inlane-r", mirrored(leftInlane)),
     ...polyline("sling-back-l", leftSlingBack),
