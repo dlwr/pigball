@@ -49,7 +49,7 @@ export class RampView {
     this.railMaterial = new THREE.MeshStandardMaterial({
       color: PALETTE.ramp,
       emissive: PALETTE.ramp,
-      emissiveIntensity: 0.25,
+      emissiveIntensity: 0.08,
       metalness: 0.3,
       roughness: 0.4,
     });
@@ -91,7 +91,7 @@ export class RampView {
 
   update(dt: number, ballsOnRamp: { x: number; y: number }[]): void {
     this.glow *= Math.exp(-dt * 4);
-    this.railMaterial.emissiveIntensity = 0.25 + this.glow * 5;
+    this.railMaterial.emissiveIntensity = 0.08 + this.glow * 2;
     let changed = false;
     this.placements.forEach((rail, i) => {
       const nearest = ballsOnRamp.reduce((d, b) => Math.min(d, Math.hypot(b.x - rail.center.x, b.y - rail.center.y)), Infinity);

@@ -49,7 +49,7 @@ export const createSnout = (x: number, y: number, r: number): Part => {
 export const createLips = (seg: SegmentDef): Part => {
   const group = new THREE.Group();
   const length = Math.hypot(seg.bx - seg.ax, seg.by - seg.ay);
-  const material = standard(PALETTE.pigLips, 0.35, PALETTE.pigLips, 0.3);
+  const material = standard(PALETTE.pigLips, 0.35, PALETTE.pigLips, 0.15);
   const lip = (offset: number, thickness: number) => {
     const mesh = shadowed(new THREE.Mesh(new THREE.CapsuleGeometry(thickness, length, 6, 16).rotateZ(Math.PI / 2), material));
     mesh.position.set(0, offset, 0.9);
@@ -75,7 +75,7 @@ export const createLips = (seg: SegmentDef): Part => {
 export const createTooth = (seg: SegmentDef): THREE.Mesh => {
   const height = Math.hypot(seg.bx - seg.ax, seg.by - seg.ay);
   const tooth = shadowed(
-    new THREE.Mesh(new THREE.CapsuleGeometry(0.75, height - 1.2, 6, 12), standard(PALETTE.tooth, 0.25, PALETTE.tooth, 0.12)),
+    new THREE.Mesh(new THREE.CapsuleGeometry(0.75, height - 1.2, 6, 12), standard(PALETTE.tooth, 0.35, PALETTE.tooth, 0.04)),
   );
   tooth.scale.z = 1.3;
   tooth.position.set((seg.ax + seg.bx) / 2 + 0.2, (seg.ay + seg.by) / 2, 0);
