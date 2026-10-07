@@ -24,6 +24,8 @@ export type GameEventKind =
   | "ramp"
   | "launch"
   | "save"
+  | "extraBall"
+  | "shootAgain"
   | "drain"
   | "tilt"
   | "over";
@@ -47,6 +49,7 @@ const SPINNER_GAIN = 0.5;
 const SPINNER_DECAY = 1.5;
 const SPINNER_POINTS_PER_TURN = 25;
 const RAMP_COMBO_SECONDS = 4;
+const RAMPS_FOR_EXTRA_BALL = 5;
 
 const SCORES = {
   bumper: 100,
@@ -66,6 +69,7 @@ export class Game {
   score = 0;
   highScore: number;
   ballsLeft = BALLS_PER_GAME;
+  extraBalls = 0;
   multiplier = 1;
   litLanes = [false, false, false];
   tilted = false;
@@ -76,6 +80,7 @@ export class Game {
   private exitedShooterLane = false;
   private rampCombo = 0;
   private rampComboTime = 0;
+  private rampsThisGame = 0;
   private tiltMeter = 0;
   private targetResetTime = 0;
   private readonly targets: Segment[];
@@ -149,6 +154,8 @@ export class Game {
   restart(): void {
     this.score = 0;
     this.ballsLeft = BALLS_PER_GAME;
+    this.extraBalls = 0;
+    this.rampsThisGame = 0;
     this.state = "ready";
     for (const target of this.targets) target.enabled = true;
     this.targetResetTime = 0;
@@ -232,6 +239,10 @@ export class Game {
     this.rampComboTime = RAMP_COMBO_SECONDS;
     this.addScore(SCORES.ramp * this.rampCombo);
     this.emit("ramp", x, y, this.rampCombo);
+    if (++this.rampsThisGame === RAMPS_FOR_EXTRA_BALL) {
+      this.extraBalls++;
+      this.emit("extraBall", x, y, 1);
+    }
   }
 
   private dropTarget(id: string, x: number, y: number, speed: number): void {
@@ -312,6 +323,13 @@ export class Game {
         this.ballSaveTime = 0;
         this.state = "ready";
         this.placeBallInShooterLane();
+        continue;
+      }
+      if (this.extraBalls > 0) {
+        this.extraBalls--;
+        this.emit("shootAgain", ball.x, 0, 1);
+        this.state = "ready";
+        this.serveBall();
         continue;
       }
       this.ballsLeft--;
