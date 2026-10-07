@@ -119,6 +119,13 @@ describe("Game", () => {
       expect(game.state).toBe("ready");
     });
 
+    it("左インレーンの壁の上端に乗ったボールも止まらずに落ちる", () => {
+      const game = newGame();
+      place(game, 4.02, 32 + ball(game).r + 0.01);
+      for (let t = 0; t < 10 && game.ballsLeft === 3; t += DT) game.step(DT);
+      expect(game.ballsLeft).toBe(2);
+    });
+
     it("台のどこから落としても引っかからずにドレインする", () => {
       const stuck: string[] = [];
       for (let x = 5; x <= 41; x += 4) {
