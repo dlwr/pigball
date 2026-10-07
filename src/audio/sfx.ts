@@ -154,6 +154,10 @@ export class Sfx {
       case "tilt":
         this.tone("sawtooth", 62, 58, 0.7, 0.4);
         break;
+      case "fever":
+        this.arpeggio([392, 523, 659, 784, 1047, 1319, 1568], 0.05, "sawtooth", 0.22);
+        this.burst(4500, 0.5, 0.3, 0.6);
+        break;
       case "stageClear":
         this.arpeggio([523, 659, 784, 1047, 784, 1047, 1319], 0.08, "square", 0.25);
         break;

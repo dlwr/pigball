@@ -253,6 +253,11 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 30, 50, new THREE.Color(PALETTE.target));
         this.shake.add(0.3);
         break;
+      case "fever":
+        this.sparks.burst(event.x, event.y, 160, 90, new THREE.Color(PALETTE.truffle), 3);
+        this.shake.add(0.6);
+        this.jiggleEyes(event.x, event.y, 40);
+        break;
       case "extraBall":
         this.sparks.burst(event.x, event.y, 80, 70, new THREE.Color(PALETTE.ramp));
         this.shake.add(0.4);
@@ -430,7 +435,9 @@ export class TableRenderer {
     this.spinnerGlow.emissiveIntensity = 0.2 + Math.min(1.6, this.spinnerSpeed / 15);
     const plunger = game.world.plunger;
     if (plunger) this.plunger.position.y = plunger.y - 2.5;
-    this.skin.emissiveIntensity = 0.025 + 0.02 * Math.sin(this.time * 0.9);
+    const fever = game.inFever ? 0.5 + 0.5 * Math.sin(this.time * 12) : 0;
+    this.skin.emissive.setHex(game.inFever ? PALETTE.truffle : PALETTE.pigSkin);
+    this.skin.emissiveIntensity = 0.025 + 0.02 * Math.sin(this.time * 0.9) + fever * 0.07;
     this.mouthOpen *= Math.exp(-dt * 5);
     this.mouth.open(this.mouthOpen > 0.6 ? 1 : this.mouthOpen * 1.6 * Math.abs(Math.cos(this.time * 18)));
     const blink = Math.sin(this.time * 12) > 0 ? 1.4 : 0.15;

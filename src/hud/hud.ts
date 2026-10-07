@@ -80,6 +80,7 @@ export class Hud {
     else if (event.kind === "piggyBreak") this.showToast("PIGGY BANK!");
     else if (event.kind === "mud") this.showToast("MUDDY");
     else if (event.kind === "stageClear") this.showToast("STAGE CLEAR!");
+    else if (event.kind === "fever") this.showToast("FEVER!");
     else if (event.kind === "bonus") this.showToast(`BONUS ${event.speed.toLocaleString("en-US")}`);
   }
 
@@ -125,6 +126,7 @@ export class Hud {
       game.state,
       game.tilted,
       this.currentRun?.truffles,
+      Math.ceil(game.feverTime),
     ].join("|");
     if (text === this.lastText) return;
     this.lastText = text;
@@ -138,7 +140,8 @@ export class Hud {
       this.run.innerHTML = `STAGE <strong>${run.stage + 1}/${STAGES.length}</strong>${run.stageDef.boss ? " BOSS" : ""} · 目標 <strong>${target.toLocaleString("en-US")}</strong> · トリュフ <strong>${run.truffles}</strong>`;
       (this.goalBar.firstElementChild as HTMLElement).style.width = `${Math.min(100, (this.shownScore / target) * 100)}%`;
     }
-    this.multiplier.textContent = game.multiplier > 1 ? `×${game.multiplier}` : "";
+    this.multiplier.textContent = [game.multiplier > 1 ? `×${game.multiplier}` : "", game.inFever ? `FEVER ${Math.ceil(game.feverTime)}` : ""].filter(Boolean).join(" ");
+    this.root.dataset.fever = String(game.inFever);
     this.message.textContent = this.messageFor(game);
     this.root.dataset.state = game.state === "over" ? "over" : game.tilted ? "tilt" : game.state;
     this.root.dataset.record = String(game.newHighScore);

@@ -392,3 +392,19 @@ body {
   background: var(--cool);
   transition: width 0.15s;
 }
+
+.hud[data-fever="true"] .hud-score {
+  color: var(--accent);
+  text-shadow: 0 0 16px rgba(255, 224, 102, 0.55);
+  animation: fever-beat 0.5s ease-in-out infinite alternate;
+}
+
+.hud[data-fever="true"] .hud-mult {
+  color: var(--accent);
+}
+
+@keyframes fever-beat {
+  to {
+    transform: scale(1.06);
+  }
+}
