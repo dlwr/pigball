@@ -14,6 +14,8 @@ export type GameEventKind =
   | "sling"
   | "rotor"
   | "belly"
+  | "navelIn"
+  | "navelOut"
   | "wall"
   | "flipper"
   | "target"
@@ -61,6 +63,9 @@ const KICKBACK_SPEED = 135;
 const SPINS_FOR_RIGHT_KICKBACK = 20;
 export const RAMPS_FOR_MULTIBALL = 3;
 const INPUT_REWIND_SECONDS = 0.024;
+const NAVEL_HOLD_SECONDS = 1;
+const NAVEL_EJECT_SPEED = 70;
+const NAVEL_RECAPTURE_SECONDS = 0.6;
 const MULTIBALL_EXTRA_BALLS = 2;
 const MULTIBALL_SAVE_SECONDS = 10;
 const AUTO_LAUNCH_INTERVAL = 0.7;
@@ -72,6 +77,7 @@ const SCORES = {
   sling: 10,
   rotor: 50,
   belly: 30,
+  navel: 1000,
   target: 500,
   bank: 5000,
   rollover: 200,
@@ -131,6 +137,9 @@ export class Game {
   private rampComboTime = 0;
   private spinsTowardRightKickback = 0;
   private pendingLaunches = 0;
+  private navelBall: Ball | null = null;
+  private navelTime = 0;
+  private navelCooldown = 0;
   private autoLaunchTime = 0;
   private tiltMeter = 0;
   private targetResetTime = 0;
@@ -153,6 +162,7 @@ export class Game {
     this.targets = layout.targets.map((def) => world.addSegment(def));
     for (const def of layout.bumpers) world.addBumper(def);
     world.addRotor(layout.rotor);
+    world.addHole(layout.navel);
     this.leftFlipper = world.addFlipper(layout.flippers.left);
     this.rightFlipper = world.addFlipper(layout.flippers.right);
     world.setPlunger(layout.plunger);
@@ -220,6 +230,8 @@ export class Game {
     this.stats = emptyStats();
     this.newHighScore = false;
     this.inMultiball = false;
+    this.navelBall = null;
+    this.navelCooldown = 0;
     this.rampsTowardMultiball = 0;
     this.kickbacksLit = { left: true, right: false };
     this.spinsTowardRightKickback = 0;
@@ -244,7 +256,8 @@ export class Game {
     const events = this.world.drainEvents();
     this.record({ snapshot, dt, replayable: events.every(isReplayable) });
     for (const event of events) this.handle(event);
-    this.ballSaveTime = Math.max(0, this.ballSaveTime - dt);
+    if (!this.navelBall) this.ballSaveTime = Math.max(0, this.ballSaveTime - dt);
+    this.stepNavel(dt);
     this.rampComboTime = Math.max(0, this.rampComboTime - dt);
     this.tiltMeter = Math.max(0, this.tiltMeter - TILT_DECAY * dt);
     this.stepSpinner(dt);
@@ -328,6 +341,10 @@ export class Game {
       if (id === "ramp-exit") this.completeRamp(x, y);
       return;
     }
+    if (event.type === "hole") {
+      this.captureInNavel(event.ball);
+      return;
+    }
     if (event.type === "sensor") {
       if (id === "spinner") {
         this.skillShotLit = false;
@@ -367,6 +384,34 @@ export class Game {
       return;
     }
     this.skillShotLit = false;
+  }
+
+  get holdingInNavel(): boolean {
+    return this.navelBall !== null;
+  }
+
+  private captureInNavel(ball: Ball): void {
+    if (this.navelBall || this.navelCooldown > 0) return;
+    const { navel } = this.layout;
+    this.navelBall = ball;
+    this.navelTime = NAVEL_HOLD_SECONDS;
+    Object.assign(ball, { x: navel.x, y: navel.y, prevX: navel.x, prevY: navel.y, vx: 0, vy: 0, frozen: true });
+    this.skillShotLit = false;
+    this.addScore(SCORES.navel);
+    this.emit("navelIn", navel.x, navel.y, 1);
+  }
+
+  private stepNavel(dt: number): void {
+    this.navelCooldown = Math.max(0, this.navelCooldown - dt);
+    const ball = this.navelBall;
+    if (!ball) return;
+    this.navelTime -= dt;
+    if (this.navelTime > 0) return;
+    const { navel } = this.layout;
+    Object.assign(ball, { frozen: false, vx: navel.ejectX * NAVEL_EJECT_SPEED, vy: navel.ejectY * NAVEL_EJECT_SPEED });
+    this.navelBall = null;
+    this.navelCooldown = NAVEL_RECAPTURE_SECONDS;
+    this.emit("navelOut", navel.x, navel.y, NAVEL_EJECT_SPEED);
   }
 
   private fireKickback(side: Side, ball: Ball): void {
