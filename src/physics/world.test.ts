@@ -272,6 +272,79 @@ describe("World", () => {
     });
   });
 
+  describe("風車", () => {
+    const rotorDef = { id: "rotor", x: 25, y: 50, arms: 4, armLength: 3.5, armRadius: 0.45, inertia: 30, damping: 0.8, restitution: 0.5 };
+
+    const zeroGravityWorld = () => {
+      const params = createParams();
+      params.gravity = 0;
+      return new World(params);
+    };
+
+    const shootAtArmTip = (world: World) => {
+      const ball = world.spawnBall(25 + 3, 44);
+      ball.vy = 80;
+      return ball;
+    };
+
+    it("腕の先に当たると回り出す", () => {
+      const world = zeroGravityWorld();
+      const rotor = world.addRotor(rotorDef);
+      shootAtArmTip(world);
+      run(world, 0.2);
+      expect(Math.abs(rotor.omega)).toBeGreaterThan(1);
+    });
+
+    it("回転はだんだん遅くなる", () => {
+      const world = zeroGravityWorld();
+      const rotor = world.addRotor(rotorDef);
+      rotor.omega = 10;
+      run(world, 1);
+      expect(rotor.omega).toBeLessThan(5);
+    });
+
+    it("角度によって跳ね返る向きが変わる", () => {
+      const bounce = (angle: number) => {
+        const world = zeroGravityWorld();
+        world.addRotor(rotorDef).angle = angle;
+        const ball = world.spawnBall(25.8, 44);
+        ball.vy = 80;
+        run(world, 0.2);
+        return Math.sign(ball.vx);
+      };
+      expect([bounce(0), bounce(Math.PI / 9)]).toEqual([1, -1]);
+    });
+
+    it("向かってくる腕に当たると、止まっている腕より強く弾かれる", () => {
+      const reboundSpeed = (omega: number) => {
+        const world = zeroGravityWorld();
+        world.addRotor(rotorDef).omega = omega;
+        const ball = shootAtArmTip(world);
+        run(world, 0.3);
+        return Math.hypot(ball.vx, ball.vy);
+      };
+      expect(reboundSpeed(-8)).toBeGreaterThan(reboundSpeed(0));
+    });
+
+    it("当たると接触イベントを出す", () => {
+      const world = zeroGravityWorld();
+      world.addRotor(rotorDef);
+      shootAtArmTip(world);
+      run(world, 0.2);
+      expect(world.drainEvents().some((e) => e.type === "contact" && e.id === "rotor")).toBe(true);
+    });
+
+    it("スナップショットを復元すると角度と角速度が戻る", () => {
+      const world = zeroGravityWorld();
+      const rotor = world.addRotor(rotorDef);
+      rotor.omega = 5;
+      const snapshot = world.snapshot();
+      run(world, 0.3);
+      world.restore(snapshot);
+      expect([rotor.angle, rotor.omega]).toEqual([0, 5]);
+    });
+  });
+
   describe("スナップショット", () => {
     it("復元するとボールの位置と速度が戻る", () => {
       const world = new World(createParams());
