@@ -46,6 +46,8 @@ export class Hud {
     else if (event.kind === "save") this.showToast("BALL SAVED");
     else if (event.kind === "extraBall") this.showToast("EXTRA BALL");
     else if (event.kind === "shootAgain") this.showToast("SHOOT AGAIN");
+    else if (event.kind === "multiball") this.showToast("MULTIBALL");
+    else if (event.kind === "jackpot") this.showToast("JACKPOT");
     else if (event.kind === "bonus") this.showToast(`BONUS ${event.speed.toLocaleString("en-US")}`);
   }
 

@@ -146,6 +146,12 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 60, 60, new THREE.Color(PALETTE.laneOn));
         this.shake.add(0.35);
         break;
+      case "multiball":
+      case "jackpot":
+        this.ramp.flash();
+        this.sparks.burst(event.x, event.y, 120, 80, new THREE.Color(PALETTE.bumper), 3);
+        this.shake.add(0.5);
+        break;
       case "extraBall":
         this.sparks.burst(event.x, event.y, 80, 70, new THREE.Color(PALETTE.ramp));
         this.shake.add(0.4);
