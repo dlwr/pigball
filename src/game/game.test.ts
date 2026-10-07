@@ -1064,28 +1064,66 @@ describe("Game", () => {
       expect(game.ballsLeft).toBe(2);
     });
 
-    it("目標スコアに届くとステージクリアになる", () => {
+    const reachTarget = (game: Game) => {
+      game.addScore(game.rules.target!);
+      game.step(DT);
+    };
+
+    it("目標スコアに届くとフィーバーに入り、そのまま遊び続けられる", () => {
       const game = gameWith({ target: 300 });
+      reachTarget(game);
+      expect([game.inFever, game.state]).toEqual([true, "ready"]);
+    });
+
+    it("フィーバーに入ったことを一度だけ知らせる", () => {
+      const game = gameWith({ target: 300 });
+      reachTarget(game);
+      const kinds = game.drainEvents().map((e) => e.kind);
       game.addScore(300);
       game.step(DT);
+      kinds.push(...game.drainEvents().map((e) => e.kind));
+      expect(kinds.filter((k) => k === "fever")).toHaveLength(1);
+    });
+
+    it("フィーバー中の点は2倍", () => {
+      const game = gameWith({ target: 300 });
+      reachTarget(game);
+      const before = game.score;
+      game.addScore(100);
+      expect(game.score - before).toBe(200);
+    });
+
+    it("フィーバー中に落としてもボールは減らない", () => {
+      const game = gameWith({ target: 300 });
+      reachTarget(game);
+      drain(game);
+      run(game, 0.5);
+      drain(game);
+      expect(game.ballsLeft).toBe(3);
+    });
+
+    it("フィーバーが終わるとステージクリアになる", () => {
+      const game = gameWith({ target: 300 });
+      reachTarget(game);
+      run(game, 15.1);
       expect(game.state).toBe("cleared");
     });
 
     it("ステージクリアのイベントは一度だけ出る", () => {
       const game = gameWith({ target: 300 });
-      game.addScore(300);
-      game.step(DT);
-      game.step(DT);
-      game.drainEvents();
-      game.addScore(300);
-      game.step(DT);
-      expect(game.drainEvents().filter((e) => e.kind === "stageClear")).toEqual([]);
+      reachTarget(game);
+      const kinds: string[] = [];
+      for (let t = 0; t < 16; t += DT) {
+        game.step(DT);
+        kinds.push(...game.drainEvents().map((e) => e.kind));
+      }
+      expect(kinds.filter((k) => k === "stageClear")).toHaveLength(1);
     });
 
     it("ステージクリアしたら台は止まる", () => {
       const game = gameWith({ target: 300 });
-      game.addScore(300);
-      game.step(DT);
+      reachTarget(game);
+      run(game, 15.1);
       const y = ball(game).y;
       run(game, 0.5);
       expect(ball(game).y).toBe(y);
