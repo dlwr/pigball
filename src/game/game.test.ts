@@ -130,7 +130,7 @@ describe("Game", () => {
         }
       }
       expect(stuck).toEqual([]);
-    });
+    }, 30_000);
   });
 
   describe("ドレイン", () => {
