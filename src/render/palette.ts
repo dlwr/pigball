@@ -25,5 +25,7 @@ export const PALETTE = {
   snoutLevels: [0xff8aa5, 0xff4d6d, 0xc04dff, 0x4d8bff, 0xffc94a],
   truffle: 0xffc94a,
   mouth: 0x1c0509,
+  mud: 0x3d2210,
+  mudDark: 0x24130a,
   tongue: 0xff6f93,
 };

@@ -10,7 +10,7 @@ import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { fitTiltedCamera } from "./camera";
 import { Piglet } from "./piglet";
-import { GooglyEye, type Mouth, type Navel, type PiggyBank, createPiggyBank, type Rotor as RotorView, type Snout, createBelly, createNavel, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
+import { GooglyEye, type MudPit, type Mouth, type Navel, type PiggyBank, createMudPit, createPiggyBank, type Rotor as RotorView, type Snout, createBelly, createNavel, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -20,6 +20,7 @@ const VIEW_TOP = TABLE_HEIGHT + 12;
 
 interface BallView {
   piglet: Piglet;
+  dirt: number;
   trail: Trail;
   z: number;
 }
@@ -51,6 +52,7 @@ export class TableRenderer {
   private readonly rotor: RotorView;
   private readonly navel: Navel;
   private readonly piggy: PiggyBank;
+  private readonly mud: MudPit;
   private frameDt = 0;
   private readonly thirdEyes: GooglyEye[] = [];
   private thirdEyeShown = 0;
@@ -98,6 +100,9 @@ export class TableRenderer {
     const { navel } = game.layout;
     this.navel = createNavel(navel.x, navel.y, navel.r);
     this.scene.add(this.navel.object);
+    const { mud } = game.layout;
+    this.mud = createMudPit(mud.x, mud.y, mud.r);
+    this.scene.add(this.mud.object);
     this.piggy = createPiggyBank(game.layout.piggy.r, 4);
     this.scene.add(this.piggy.object);
     this.rotor = this.addRotor();
@@ -166,6 +171,17 @@ export class TableRenderer {
         this.shake.add(0.15);
         this.impact(event.speed);
         break;
+      case "mud": {
+        let nearest: BallView | undefined;
+        let best = Infinity;
+        for (const [ball, view] of this.ballViews) {
+          const d = Math.hypot(ball.x - event.x, ball.y - event.y);
+          if (d < best) [best, nearest] = [d, view];
+        }
+        if (nearest) nearest.dirt = 1;
+        this.sparks.burst(event.x, event.y, 16, 22, new THREE.Color(PALETTE.mud), 0.6);
+        break;
+      }
       case "piggy":
         this.piggy.bump();
         this.sparks.burst(event.x, event.y, 14, 35, new THREE.Color(PALETTE.truffle), 2.5);
@@ -327,6 +343,8 @@ export class TableRenderer {
       const lift = 1 + (z - ball.r) * 0.035;
       view.piglet.update(x, y, z, ball.vx, ball.vy, ball.r * lift, along, across, dt);
       view.piglet.setWrapped(ball.layer === LAYER_RAMP, dt);
+      view.dirt = Math.max(0, view.dirt - dt / 6);
+      view.piglet.setDirt(Math.min(1, view.dirt * 1.5));
       view.trail.update(x, y, z - ball.r + 0.3, speed);
     }
   }
@@ -334,10 +352,11 @@ export class TableRenderer {
   private createBallView(ball: Ball, x: number, y: number, z: number): BallView {
     let view = this.spareBallViews.pop();
     if (!view) {
-      view = { piglet: new Piglet(), trail: new Trail(1.1, PALETTE.pigTrail), z };
+      view = { piglet: new Piglet(), dirt: 0, trail: new Trail(1.1, PALETTE.pigTrail), z };
       this.scene.add(view.piglet.root, view.trail.mesh);
     }
     view.z = z;
+    view.dirt = 0;
     view.piglet.reset();
     view.piglet.root.visible = true;
     view.trail.mesh.visible = true;
@@ -364,6 +383,8 @@ export class TableRenderer {
     }
     for (const snout of this.snouts) snout.setLevel(game.multiplier, this.time, dt);
     this.navel.update(game.holdingInNavel, this.time, dt);
+    const { mud } = game.layout;
+    this.mud.update(game.world.balls.some((b) => b.layer !== LAYER_RAMP && Math.hypot(b.x - mud.x, b.y - mud.y) < mud.r), this.time, dt);
     const piggy = game.world.movers[0];
     this.piggy.update(piggy.x, piggy.y, game.piggyHits, piggy.enabled, this.time, dt);
     this.thirdEyeShown += ((game.multiplier >= 3 ? 1 : 0) - this.thirdEyeShown) * Math.min(1, dt * 10);
