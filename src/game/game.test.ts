@@ -352,25 +352,25 @@ describe("Game", () => {
       run(game, 0.1);
     };
 
-    it("左のお腹に当てると30点", () => {
+    it("下のお腹に当てると30点", () => {
       const game = newGame();
       hitBelly(game, 0);
       expect(game.score).toBe(30);
     });
 
-    it("右のお腹に当てると30点", () => {
+    it("上のお腹に当てると30点", () => {
       const game = newGame();
       hitBelly(game, 1);
       expect(game.score).toBe(30);
     });
 
-    it("シューターレーンを上がるボールはお腹に当たらない", () => {
+    it("フルパワーで打ち出したボールはお腹に当たらない", () => {
       const game = newGame();
       game.setPlunger(true);
       run(game, 1.2);
       game.setPlunger(false);
       const kinds: string[] = [];
-      for (let t = 0; t < 0.5; t += DT) {
+      for (let t = 0; t < 2.5; t += DT) {
         game.step(DT);
         kinds.push(...game.drainEvents().map((e) => e.kind));
       }

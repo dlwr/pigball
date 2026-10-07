@@ -112,8 +112,8 @@ export const createLayout = (): TableLayout => ({
   piggy: { id: "piggy", ax: 16, bx: 26, y: 80.5, r: 1.8, period: 5 },
   navel: { id: "navel", x: 12.5, y: 78, r: 1.4, ejectX: 0.45, ejectY: -0.89 },
   bellies: [
-    { id: "belly-l", ax: 0.25, ay: 62, bx: 0.25, by: 72, kind: "belly" },
-    { id: "belly-r", ax: PLAYFIELD_WIDTH - 0.25, ay: 60, bx: PLAYFIELD_WIDTH - 0.25, by: 70, kind: "belly" },
+    { id: "belly-low", ax: PLAYFIELD_WIDTH - 0.25, ay: 60, bx: PLAYFIELD_WIDTH - 0.25, by: 69, kind: "belly" },
+    { id: "belly-high", ax: PLAYFIELD_WIDTH - 0.25, ay: 71.5, bx: PLAYFIELD_WIDTH - 0.25, by: 78.5, kind: "belly" },
   ],
   rotor: { id: "rotor", x: 23, y: 36, arms: 4, armLength: 2.8, armRadius: 0.6, inertia: 12, damping: 0.8, restitution: 0.25 },
   kickbacks: {
