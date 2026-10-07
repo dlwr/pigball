@@ -127,7 +127,7 @@ export class TableRenderer {
       case "bumper":
         this.flash(event.id);
         this.sparks.burst(event.x, event.y, 18, 40, new THREE.Color(PALETTE.bumper));
-        this.shake.add(0.25);
+        this.shake.add(0.15);
         this.impact(event.speed);
         break;
       case "sling":

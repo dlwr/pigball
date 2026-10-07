@@ -11,6 +11,7 @@ import "./style.css";
 const PHYSICS_HZ = 960;
 const MAX_FRAME_SECONDS = 0.1;
 const HIT_STOP_SECONDS = 0.045;
+const HIT_STOP_COOLDOWN_SECONDS = 0.3;
 
 const app = document.querySelector<HTMLElement>("#app")!;
 const params = createParams();
@@ -46,13 +47,17 @@ bindInput(app, {
 });
 
 let hitStop = 0;
+let hitStopCooldown = 0;
 
 const handle = (event: GameEvent) => {
   sfx.play(event);
   renderer.onEvent(event);
   hud.onEvent(event, game);
   const heavy = (event.kind === "bumper" && event.speed > 100) || (event.kind === "flipper" && event.speed > 220) || event.kind === "bank";
-  if (heavy) hitStop = Math.max(hitStop, HIT_STOP_SECONDS);
+  if (heavy && hitStopCooldown <= 0) {
+    hitStop = HIT_STOP_SECONDS;
+    hitStopCooldown = HIT_STOP_COOLDOWN_SECONDS;
+  }
 };
 
 let last = performance.now();
@@ -65,6 +70,7 @@ const frame = (now: number) => {
   stats.fps = Math.round(stats.fps * 0.9 + (dt > 0 ? 1 / dt : 0) * 0.1);
   let alpha = 1;
   let steps = 0;
+  hitStopCooldown -= dt;
   if (hitStop > 0) {
     hitStop -= dt;
   } else {

@@ -35,6 +35,7 @@ export class Sfx {
     const s = Math.min(1, event.speed / 300);
     switch (event.kind) {
       case "bumper":
+        if (!this.throttle("bumper", 0.04)) return;
         this.tone("sine", 220, 70, 0.16, 0.7);
         this.tone("sawtooth", 660, 330, 0.06, 0.15);
         this.burst(1800, 0.03, 0.4, 2);
