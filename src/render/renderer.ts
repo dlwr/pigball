@@ -2,7 +2,7 @@ import { BloomEffect, EffectComposer, EffectPass, RenderPass, ToneMappingEffect,
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { Game, GameEvent } from "../game/game";
-import { TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
+import { type Side, TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
 import type { Ball, Flipper, SegmentDef } from "../physics/world";
 import { LAYER_RAMP } from "../physics/world";
 import { Sparks, Shake, Trail } from "./effects";
@@ -48,7 +48,7 @@ export class TableRenderer {
   private lastSpinnerAngle = 0;
   private readonly plunger: THREE.Mesh;
   private readonly saveLight: THREE.MeshStandardMaterial;
-  private readonly kickbackLight: THREE.MeshStandardMaterial;
+  private readonly kickbackLights: Record<Side, THREE.MeshStandardMaterial>;
   private readonly sparks = new Sparks();
   private readonly shake = new Shake();
   private readonly ramp: RampView;
@@ -86,7 +86,7 @@ export class TableRenderer {
     [this.spinner, this.spinnerGlow] = this.addSpinner();
     this.plunger = this.addPlunger();
     this.saveLight = this.addSaveLight();
-    this.kickbackLight = this.addKickbackLight();
+    this.kickbackLights = { left: this.addKickbackLight("left"), right: this.addKickbackLight("right") };
     for (const flipper of game.world.flippers) this.addFlipper(flipper);
     this.ramp = new RampView(game.layout.ramp);
     this.scene.add(this.ramp.group);
@@ -298,7 +298,7 @@ export class TableRenderer {
     const plunger = game.world.plunger;
     if (plunger) this.plunger.position.y = plunger.y - 2.5;
     const blink = Math.sin(this.time * 12) > 0 ? 2.5 : 0.2;
-    this.kickbackLight.emissiveIntensity = game.kickbackLit ? 2 : 0.05;
+    for (const side of ["left", "right"] as const) this.kickbackLights[side].emissiveIntensity = game.kickbacksLit[side] ? 2 : 0.05;
     this.saveLight.emissiveIntensity = game.ballSaveActive ? blink : game.extraBalls > 0 ? 1.6 : 0.05;
   }
 
@@ -449,8 +449,8 @@ export class TableRenderer {
     return mesh;
   }
 
-  private addKickbackLight(): THREE.MeshStandardMaterial {
-    const { kickback } = this.game.layout;
+  private addKickbackLight(side: Side): THREE.MeshStandardMaterial {
+    const kickback = this.game.layout.kickbacks[side];
     const material = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.target, emissiveIntensity: 0 });
     const mesh = new THREE.Mesh(new THREE.CircleGeometry(0.9, 3), material);
     mesh.rotation.z = Math.PI / 2;

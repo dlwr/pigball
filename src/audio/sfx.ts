@@ -93,6 +93,9 @@ export class Sfx {
         this.arpeggio([1047, 1319, 1568, 2093], 0.05, "square", 0.28);
         this.tone("sine", 110, 55, 0.5, 0.6);
         break;
+      case "kickbackLit":
+        this.arpeggio([659, 880, 1175], 0.05, "triangle", 0.3);
+        break;
       case "kickback":
         this.tone("square", 120, 900, 0.12, 0.35);
         this.burst(1500, 0.08, 0.5, 2);
