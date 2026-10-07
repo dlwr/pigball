@@ -7,6 +7,7 @@ export interface Controls {
   nudge(dx: number, dy: number): void;
   restart(): void;
   toggleMusic(): void;
+  blocked(): boolean;
   interact(): void;
 }
 
@@ -36,6 +37,7 @@ export const bindInput = (target: HTMLElement, controls: Controls): (() => void)
 
   const onKeyDown = (e: KeyboardEvent) => {
     controls.interact();
+    if (controls.blocked()) return;
     if (e.repeat) {
       e.preventDefault();
       return;
