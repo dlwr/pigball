@@ -195,6 +195,52 @@ describe("World", () => {
     });
   });
 
+  describe("ボール同士", () => {
+    const zeroGravityWorld = () => {
+      const params = createParams();
+      params.gravity = 0;
+      return new World(params);
+    };
+
+    it("正面からぶつかると止まっていたボールが押し出される", () => {
+      const world = zeroGravityWorld();
+      const a = world.spawnBall(10, 50);
+      const b = world.spawnBall(20, 50);
+      a.vx = 100;
+      run(world, 0.2);
+      expect(b.vx).toBeGreaterThan(80);
+    });
+
+    it("正面からぶつかるとぶつけたボールはほぼ止まる", () => {
+      const world = zeroGravityWorld();
+      const a = world.spawnBall(10, 50);
+      world.spawnBall(20, 50);
+      a.vx = 100;
+      run(world, 0.2);
+      expect(Math.abs(a.vx)).toBeLessThan(10);
+    });
+
+    it("床の上で並んでも重ならない", () => {
+      const world = new World(createParams());
+      world.addSegment({ id: "floor", ax: 0, ay: 0, bx: 50, by: 0 });
+      world.addSegment({ id: "left", ax: 20, ay: 0, bx: 20, by: 20 });
+      const a = world.spawnBall(21.5, 3);
+      const b = world.spawnBall(22, 8);
+      run(world, 3);
+      expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(a.r + b.r - 0.05);
+    });
+
+    it("違うレイヤーのボール同士はぶつからない", () => {
+      const world = zeroGravityWorld();
+      const a = world.spawnBall(10, 50);
+      const b = world.spawnBall(20, 50);
+      b.layer = LAYER_RAMP;
+      a.vx = 100;
+      run(world, 0.2);
+      expect(b.vx).toBe(0);
+    });
+  });
+
   describe("レイヤー", () => {
     const noGravity = () => {
       const params = createParams();
