@@ -42,6 +42,18 @@ const eye = (x: number, size: number) => {
   return group;
 };
 
+const MEMBRANE = new THREE.MeshStandardMaterial({
+  color: PALETTE.ramp,
+  emissive: PALETTE.ramp,
+  emissiveIntensity: 0.2,
+  roughness: 0.2,
+  transparent: true,
+  opacity: 0.28,
+  depthWrite: false,
+});
+
+const popScale = (age: number) => (age >= 0.6 ? 1 : 1 - Math.exp(-8 * age) * Math.cos(20 * age));
+
 const AXIS = new THREE.Vector3();
 const STEP = new THREE.Quaternion();
 
@@ -49,6 +61,9 @@ export class Piglet {
   readonly root = new THREE.Group();
   private readonly counter = new THREE.Group();
   private readonly body = new THREE.Group();
+  private readonly membrane = new THREE.Mesh(GEOMETRY.sphere, MEMBRANE);
+  private wrap = 0;
+  private age = 0;
 
   constructor() {
     const { body } = this;
@@ -66,18 +81,30 @@ export class Piglet {
     tail.rotation.y = Math.PI / 2;
     body.add(tail);
     this.counter.add(body);
-    this.root.add(this.counter);
+    this.membrane.visible = false;
+    this.root.add(this.counter, this.membrane);
   }
 
   reset(): void {
     this.body.quaternion.identity();
+    this.age = 0;
+    this.wrap = 0;
+  }
+
+  setWrapped(wrapped: boolean, dt: number): void {
+    this.wrap += ((wrapped ? 1 : 0) - this.wrap) * Math.min(1, dt * 12);
+    this.membrane.visible = this.wrap > 0.02;
+    const size = 1.15 + this.wrap * 0.55;
+    this.membrane.scale.set(size, size, size * 0.8);
   }
 
   update(x: number, y: number, z: number, vx: number, vy: number, r: number, along: number, across: number, dt: number): void {
+    this.age += dt;
+    const pop = popScale(this.age);
     const heading = Math.atan2(vy, vx);
     this.root.position.set(x, y, z);
     this.root.rotation.set(0, 0, heading);
-    this.root.scale.set(r * along, r * across, r * across);
+    this.root.scale.set(r * along * pop, r * across * pop, r * across * pop);
     this.counter.rotation.set(0, 0, -heading);
     const speed = Math.hypot(vx, vy);
     if (speed < 1e-3) return;
