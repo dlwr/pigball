@@ -55,7 +55,7 @@ export interface GameEvent {
 const BALLS_PER_GAME = 3;
 const BALL_SAVE_SECONDS = 8;
 const TARGET_RESET_SECONDS = 1;
-const MAX_MULTIPLIER = 5;
+export const MAX_MULTIPLIER = 5;
 const NUDGE_SPEED = 25;
 const TILT_LIMIT = 5;
 const TILT_DECAY = 1.5;
@@ -106,6 +106,7 @@ export interface Modifier {
   start?(game: Game): void;
   score?(kind: ScoreKind, points: number, game: Game): number;
   rampWorth?(game: Game): number;
+  event?(kind: GameEventKind, game: Game): void;
 }
 
 export interface GameRules {
@@ -155,6 +156,7 @@ export class Game {
   bonus = 0;
   inMultiball = false;
   piggyHits = 0;
+  piggyHitsToBreak = PIGGY_HITS_TO_BREAK;
   rampsTowardMultiball = 0;
   rampsTowardExtraBall = 0;
   kickbacksLit: Record<Side, boolean> = { left: true, right: false };
@@ -459,7 +461,7 @@ export class Game {
   private hitPiggy(x: number, y: number, speed: number): void {
     this.award("piggy", SCORES.piggy);
     this.emit("piggy", x, y, speed);
-    if (++this.piggyHits < PIGGY_HITS_TO_BREAK) return;
+    if (++this.piggyHits < this.piggyHitsToBreak) return;
     this.award("piggyBreak", SCORES.piggyBreak);
     this.world.movers[0].enabled = false;
     this.piggyRespawnTime = PIGGY_RESPAWN_SECONDS;
@@ -671,5 +673,6 @@ export class Game {
 
   private emit(kind: GameEventKind, x: number, y: number, speed: number, id?: string): void {
     this.events.push({ kind, id, x, y, speed });
+    for (const modifier of this.rules.modifiers) modifier.event?.(kind, this);
   }
 }
