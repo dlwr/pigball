@@ -8,6 +8,7 @@ import { LAYER_RAMP } from "../physics/world";
 import { Sparks, Shake, Trail } from "./effects";
 import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
+import { Piglet } from "./piglet";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -16,7 +17,7 @@ const VIEW_BOTTOM = -3.5;
 const VIEW_TOP = TABLE_HEIGHT + 12;
 
 interface BallView {
-  mesh: THREE.Mesh;
+  piglet: Piglet;
   trail: Trail;
   z: number;
 }
@@ -36,8 +37,6 @@ export class TableRenderer {
   private readonly camera = new THREE.OrthographicCamera();
   private readonly ballViews = new Map<Ball, BallView>();
   private readonly spareBallViews: BallView[] = [];
-  private readonly ballGeometry: THREE.SphereGeometry;
-  private readonly ballMaterial: THREE.MeshStandardMaterial;
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
   private readonly glows = new Map<string, Glow>();
   private readonly targetMeshes: THREE.Mesh[] = [];
@@ -91,8 +90,6 @@ export class TableRenderer {
     this.ramp = new RampView(game.layout.ramp);
     this.scene.add(this.ramp.group);
 
-    this.ballGeometry = new THREE.SphereGeometry(1, 32, 24);
-    this.ballMaterial = new THREE.MeshStandardMaterial({ color: PALETTE.ball, metalness: 1, roughness: 0.12 });
     this.scene.add(this.sparks.points);
 
     this.composer = new EffectComposer(this.renderer, { multisampling: Math.min(4, this.renderer.capabilities.maxSamples) });
@@ -225,7 +222,7 @@ export class TableRenderer {
     const balls = this.game.world.balls;
     for (const [ball, view] of this.ballViews) {
       if (balls.includes(ball)) continue;
-      view.mesh.visible = false;
+      view.piglet.root.visible = false;
       view.trail.mesh.visible = false;
       this.ballViews.delete(ball);
       this.spareBallViews.push(view);
@@ -240,13 +237,11 @@ export class TableRenderer {
       const view = this.ballViews.get(ball) ?? this.createBallView(ball, x, y, targetZ);
       const z = view.z + (targetZ - view.z) * Math.min(1, dt * 25);
       view.z = z;
-      view.mesh.position.set(x, y, z);
       const speed = Math.hypot(ball.vx, ball.vy);
       const along = Math.max(0.68, 1 + Math.min(0.25, speed / 1200) + this.squash);
       const across = 1 / Math.sqrt(along);
-      view.mesh.rotation.set(0, 0, Math.atan2(ball.vy, ball.vx));
       const lift = 1 + (z - ball.r) * 0.035;
-      view.mesh.scale.set(ball.r * along * lift, ball.r * across * lift, ball.r * across * lift);
+      view.piglet.update(x, y, z, ball.vx, ball.vy, ball.r * lift, along, across, dt);
       view.trail.update(x, y, z - ball.r + 0.3, speed);
     }
   }
@@ -254,13 +249,12 @@ export class TableRenderer {
   private createBallView(ball: Ball, x: number, y: number, z: number): BallView {
     let view = this.spareBallViews.pop();
     if (!view) {
-      const mesh = new THREE.Mesh(this.ballGeometry, this.ballMaterial);
-      mesh.castShadow = true;
-      view = { mesh, trail: new Trail(1.1, 0x7fd8ff), z };
-      this.scene.add(mesh, view.trail.mesh);
+      view = { piglet: new Piglet(), trail: new Trail(1.1, PALETTE.pigTrail), z };
+      this.scene.add(view.piglet.root, view.trail.mesh);
     }
     view.z = z;
-    view.mesh.visible = true;
+    view.piglet.reset();
+    view.piglet.root.visible = true;
     view.trail.mesh.visible = true;
     view.trail.reset(x, y);
     this.ballViews.set(ball, view);
