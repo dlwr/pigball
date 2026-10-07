@@ -370,3 +370,70 @@ export const createNavel = (x: number, y: number, r: number): Navel => {
     },
   };
 };
+
+export interface PiggyBank {
+  object: THREE.Group;
+  update(x: number, y: number, cracks: number, visible: boolean, time: number, dt: number): void;
+  bump(): void;
+}
+
+export const createPiggyBank = (r: number, maxCracks: number): PiggyBank => {
+  const group = new THREE.Group();
+  const body = new THREE.Group();
+  const skin = standard(PALETTE.pigSkin, 0.3, PALETTE.pigSkin, 0.08);
+  const torso = shadowed(new THREE.Mesh(new THREE.SphereGeometry(1, 28, 20), skin));
+  torso.scale.set(r * 1.35, r, r * 0.95);
+  const slot = new THREE.Mesh(new THREE.BoxGeometry(r * 0.9, r * 0.14, 0.2), standard(PALETTE.mouth, 0.9));
+  slot.position.set(0, 0.1, r * 0.93);
+  const snout = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(r * 0.38, r * 0.42, r * 0.35, 20), standard(PALETTE.pigSnout, 0.4)));
+  snout.position.set(0, -r * 0.95, r * 0.15);
+  const nostrils = [-1, 1].map((side) => {
+    const nostril = new THREE.Mesh(new THREE.SphereGeometry(r * 0.08, 8, 6), standard(PALETTE.pigNostril, 0.9));
+    nostril.position.set(side * r * 0.14, -r * 1.13, r * 0.18);
+    return nostril;
+  });
+  const eyes = [-1, 1].map((side) => {
+    const eye = new THREE.Group();
+    const white = new THREE.Mesh(new THREE.SphereGeometry(r * (side < 0 ? 0.24 : 0.19), 14, 10), standard(0xf2f2f2, 0.4));
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(r * 0.1, 10, 8), standard(0x0d0d10, 0.1));
+    pupil.position.set(0, -r * 0.12, r * 0.12);
+    eye.add(white, pupil);
+    eye.position.set(side * r * 0.42, -r * 0.62, r * 0.62);
+    return eye;
+  });
+  const ears = [-1, 1].map((side) => {
+    const ear = shadowed(new THREE.Mesh(new THREE.ConeGeometry(r * 0.28, r * 0.5, 10), skin));
+    ear.position.set(side * r * 0.6, -r * 0.35, r * 0.9);
+    ear.rotation.set(0.6, 0, -side * 0.5);
+    return ear;
+  });
+  const crackMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.mouth });
+  const cracks = Array.from({ length: maxCracks }, (_, i) => {
+    const crack = new THREE.Mesh(new THREE.BoxGeometry(r * (0.5 + (i % 2) * 0.25), 0.07, 0.05), crackMaterial);
+    const a = (i / maxCracks) * Math.PI * 2 + 0.4;
+    crack.position.set(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.55, r * 0.72);
+    crack.rotation.z = a + 1.1;
+    crack.visible = false;
+    return crack;
+  });
+  body.add(torso, slot, snout, ...nostrils, ...eyes, ...ears, ...cracks);
+  group.add(body);
+  let bump = 0;
+  let shown = 1;
+  return {
+    object: group,
+    update(x, y, crackCount, visible, time, dt) {
+      group.position.set(x, y, r * 0.9);
+      bump *= Math.exp(-dt * 8);
+      shown += ((visible ? 1 : 0) - shown) * Math.min(1, dt * (visible ? 6 : 20));
+      group.visible = shown > 0.02;
+      const wobble = Math.sin(time * 3) * 0.05 + Math.sin(bump * Math.PI * 3) * bump * 0.25;
+      body.rotation.z = wobble;
+      body.scale.setScalar(shown * (1 + bump * 0.15));
+      cracks.forEach((crack, i) => (crack.visible = i < crackCount));
+    },
+    bump() {
+      bump = 1;
+    },
+  };
+};

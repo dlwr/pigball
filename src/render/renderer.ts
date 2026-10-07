@@ -10,7 +10,7 @@ import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { fitTiltedCamera } from "./camera";
 import { Piglet } from "./piglet";
-import { GooglyEye, type Mouth, type Navel, type Rotor as RotorView, type Snout, createBelly, createNavel, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
+import { GooglyEye, type Mouth, type Navel, type PiggyBank, createPiggyBank, type Rotor as RotorView, type Snout, createBelly, createNavel, createCurlyTail, createRotor, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -50,6 +50,7 @@ export class TableRenderer {
   private readonly snouts: Snout[] = [];
   private readonly rotor: RotorView;
   private readonly navel: Navel;
+  private readonly piggy: PiggyBank;
   private frameDt = 0;
   private readonly thirdEyes: GooglyEye[] = [];
   private thirdEyeShown = 0;
@@ -97,6 +98,8 @@ export class TableRenderer {
     const { navel } = game.layout;
     this.navel = createNavel(navel.x, navel.y, navel.r);
     this.scene.add(this.navel.object);
+    this.piggy = createPiggyBank(game.layout.piggy.r, 4);
+    this.scene.add(this.piggy.object);
     this.rotor = this.addRotor();
     this.addTargets();
     this.addLanes();
@@ -162,6 +165,16 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 18, 40, new THREE.Color(PALETTE.pigSnout));
         this.shake.add(0.15);
         this.impact(event.speed);
+        break;
+      case "piggy":
+        this.piggy.bump();
+        this.sparks.burst(event.x, event.y, 14, 35, new THREE.Color(PALETTE.truffle), 2.5);
+        this.jiggleEyes(event.x, event.y, 10);
+        break;
+      case "piggyBreak":
+        this.sparks.burst(event.x, event.y, 90, 70, new THREE.Color(PALETTE.truffle), 2.5);
+        this.sparks.burst(event.x, event.y, 40, 50, new THREE.Color(PALETTE.pigSkin), 2.5);
+        this.shake.add(0.45);
         break;
       case "navelIn":
         this.sparks.burst(event.x, event.y, 16, 20, new THREE.Color(PALETTE.pigSkin));
@@ -351,6 +364,8 @@ export class TableRenderer {
     }
     for (const snout of this.snouts) snout.setLevel(game.multiplier, this.time, dt);
     this.navel.update(game.holdingInNavel, this.time, dt);
+    const piggy = game.world.movers[0];
+    this.piggy.update(piggy.x, piggy.y, game.piggyHits, piggy.enabled, this.time, dt);
     this.thirdEyeShown += ((game.multiplier >= 3 ? 1 : 0) - this.thirdEyeShown) * Math.min(1, dt * 10);
     for (const eye of this.thirdEyes) eye.shown = this.thirdEyeShown;
     const balls = game.world.balls;

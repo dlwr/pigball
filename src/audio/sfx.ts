@@ -46,6 +46,14 @@ export class Sfx {
         this.tone("sawtooth", 660, 330, 0.06, 0.15);
         this.burst(1800, 0.03, 0.4, 2);
         break;
+      case "piggy":
+        this.tone("triangle", 1568, 1568, 0.08, 0.25);
+        this.tone("triangle", 2093, 2093, 0.12, 0.2, 0.05);
+        break;
+      case "piggyBreak":
+        this.burst(3500, 0.35, 0.5, 1);
+        this.arpeggio([1568, 2093, 2637, 3136, 2637, 3136], 0.04, "triangle", 0.18);
+        break;
       case "navelIn":
         this.tone("sine", 900, 180, 0.22, 0.35);
         this.burst(2200, 0.18, 0.2, 1.5);
