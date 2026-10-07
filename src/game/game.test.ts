@@ -513,10 +513,25 @@ describe("Game", () => {
       }
     };
 
-    it("ランプを続けて3回通すと始まる", () => {
+    it("コンボでなくてもランプを合計3回通すと始まる", () => {
+      const game = newGame();
+      completeRampsWithoutCombo(game, 3);
+      expect(game.inMultiball).toBe(true);
+    });
+
+    it("ランプ2回では始まらない", () => {
+      const game = newGame();
+      completeRampsWithoutCombo(game, 2);
+      expect(game.inMultiball).toBe(false);
+    });
+
+    it("終わったあとは改めてランプを3回通すまで始まらない", () => {
       const game = newGame();
       startMultiball(game);
-      expect(game.inMultiball).toBe(true);
+      runUntilBallSaveEnds(game);
+      drainUntilOneLeft(game);
+      completeRampsWithoutCombo(game, 2);
+      expect(game.inMultiball).toBe(false);
     });
 
     it("始まると追加のボールが2個打ち出される", () => {
