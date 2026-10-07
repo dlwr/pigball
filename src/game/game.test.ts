@@ -1125,6 +1125,25 @@ describe("Game", () => {
       expect(game.kickbacksLit.right).toBe(true);
     });
 
+    it("台の出来事に反応する効果を付けられる", () => {
+      const seen: string[] = [];
+      const game = gameWith({ modifiers: [{ id: "watcher", event: (kind) => seen.push(kind) }] });
+      hitBumper(game);
+      expect(seen).toContain("bumper");
+    });
+
+    it("貯金箱が割れるまでの回数を変えられる", () => {
+      const game = gameWith({ modifiers: [{ id: "hammer", start: (g) => (g.piggyHitsToBreak = 2) }] });
+      for (let i = 0; i < 2; i++) {
+        const piggy = game.world.movers[0];
+        place(game, piggy.x, piggy.y - piggy.r - ball(game).r - 2, 0, 80);
+        run(game, 0.06);
+        place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+        run(game, 0.05);
+      }
+      expect(game.world.movers[0].enabled).toBe(false);
+    });
+
     it("ランプ1回の数え方を変える効果を付けられる", () => {
       const game = gameWith({ modifiers: [{ id: "double-ramp", rampWorth: () => 2 }] });
       completeRampsWithoutCombo(game, 1);
