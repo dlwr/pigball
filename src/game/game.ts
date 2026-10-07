@@ -27,6 +27,7 @@ export type GameEventKind =
   | "extraBall"
   | "shootAgain"
   | "drain"
+  | "bonus"
   | "tilt"
   | "over";
 
@@ -62,6 +63,13 @@ const SCORES = {
   skillShot: 10000,
 };
 
+const BONUS = {
+  bumper: 50,
+  target: 200,
+  rollover: 100,
+  ramp: 1000,
+};
+
 export class Game {
   readonly world: World;
   readonly layout: TableLayout = createLayout();
@@ -70,6 +78,7 @@ export class Game {
   highScore: number;
   ballsLeft = BALLS_PER_GAME;
   extraBalls = 0;
+  bonus = 0;
   multiplier = 1;
   litLanes = [false, false, false];
   tilted = false;
@@ -183,6 +192,7 @@ export class Game {
 
   private serveBall(): void {
     this.placeBallInShooterLane();
+    this.bonus = 0;
     this.multiplier = 1;
     this.litLanes = [false, false, false];
     this.tilted = false;
@@ -219,6 +229,7 @@ export class Game {
     }
     if (id.startsWith("bumper")) {
       this.addScore(SCORES.bumper);
+      this.bonus += BONUS.bumper;
       this.emit("bumper", x, y, speed, id);
     } else if (id.startsWith("sling")) {
       this.addScore(SCORES.sling);
@@ -238,6 +249,7 @@ export class Game {
     this.rampCombo = this.rampComboTime > 0 ? this.rampCombo + 1 : 1;
     this.rampComboTime = RAMP_COMBO_SECONDS;
     this.addScore(SCORES.ramp * this.rampCombo);
+    this.bonus += BONUS.ramp;
     this.emit("ramp", x, y, this.rampCombo);
     if (++this.rampsThisGame === RAMPS_FOR_EXTRA_BALL) {
       this.extraBalls++;
@@ -250,6 +262,7 @@ export class Game {
     if (!target?.enabled) return;
     target.enabled = false;
     this.addScore(SCORES.target);
+    this.bonus += BONUS.target;
     this.emit("target", x, y, speed, id);
     if (this.targets.every((t) => !t.enabled)) {
       this.addScore(SCORES.bank);
@@ -277,6 +290,7 @@ export class Game {
     if (this.litLanes[index]) return;
     this.litLanes[index] = true;
     this.addScore(SCORES.rollover);
+    this.bonus += BONUS.rollover;
     this.emit("rollover", x, y, speed, `rollover-${index}`);
     if (this.litLanes.every(Boolean)) {
       this.addScore(SCORES.lanes);
@@ -325,6 +339,7 @@ export class Game {
         this.placeBallInShooterLane();
         continue;
       }
+      this.awardBonus();
       if (this.extraBalls > 0) {
         this.extraBalls--;
         this.emit("shootAgain", ball.x, 0, 1);
@@ -348,6 +363,12 @@ export class Game {
       }
       this.emit("over", 23, 50, 1);
     }
+  }
+
+  private awardBonus(): void {
+    if (this.tilted || this.bonus === 0) return;
+    this.addScore(this.bonus);
+    this.emit("bonus", 23, 30, this.bonus * this.multiplier);
   }
 
   private emit(kind: GameEventKind, x: number, y: number, speed: number, id?: string): void {
