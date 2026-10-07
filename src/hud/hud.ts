@@ -1,4 +1,4 @@
-import type { Game, GameEvent } from "../game/game";
+import { type Game, type GameEvent, RAMPS_FOR_MULTIBALL } from "../game/game";
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
 
@@ -48,7 +48,7 @@ export class Hud {
   }
 
   onEvent(event: GameEvent, game: Game): void {
-    if (event.kind === "ramp") this.showToast(event.speed > 1 ? `RAMP COMBO ×${event.speed}` : "RAMP");
+    if (event.kind === "ramp") this.showToast(this.rampText(event.speed, game));
     else if (event.kind === "lanes") this.showToast(`MULTIPLIER ×${game.multiplier}`);
     else if (event.kind === "bank") this.showToast("TARGET BANK");
     else if (event.kind === "skill") this.showToast("SKILL SHOT");
@@ -59,6 +59,11 @@ export class Hud {
     else if (event.kind === "jackpot") this.showToast("JACKPOT");
     else if (event.kind === "kickback") this.showToast("KICKBACK");
     else if (event.kind === "bonus") this.showToast(`BONUS ${event.speed.toLocaleString("en-US")}`);
+  }
+
+  private rampText(combo: number, game: Game): string {
+    const progress = game.rampsTowardMultiball > 0 ? ` ${game.rampsTowardMultiball}/${RAMPS_FOR_MULTIBALL}` : "";
+    return combo > 1 ? `RAMP COMBO ×${combo}${progress}` : `RAMP${progress}`;
   }
 
   private showToast(text: string): void {
