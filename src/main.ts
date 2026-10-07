@@ -26,7 +26,7 @@ const stepper = new FixedStepper(1 / PHYSICS_HZ, PHYSICS_HZ * MAX_FRAME_SECONDS)
 const stats = { fps: 0, steps: 0, frameMs: 0 };
 
 if (new URLSearchParams(location.search).has("debug")) {
-  void import("./debug/panel").then(({ mountDebugPanel }) => mountDebugPanel(params, stats));
+  void import("./debug/panel").then(({ mountDebugPanel }) => mountDebugPanel(params, stats, renderer.view));
   Object.assign(window, { game });
 }
 
