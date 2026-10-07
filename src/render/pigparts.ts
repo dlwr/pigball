@@ -17,7 +17,13 @@ export interface Part {
   react(value: number): void;
 }
 
-export const createSnout = (x: number, y: number, r: number): Part => {
+export interface Snout extends Part {
+  setLevel(level: number, time: number, dt: number): void;
+}
+
+const LEVEL_GROWTH = 0.07;
+
+export const createSnout = (x: number, y: number, r: number): Snout => {
   const group = new THREE.Group();
   const material = standard(PALETTE.pigSnout, 0.45, PALETTE.pigSnout, 0.15);
   const snout = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.04, 1.8, 40).rotateX(Math.PI / 2), material));
@@ -36,12 +42,31 @@ export const createSnout = (x: number, y: number, r: number): Part => {
   });
   group.add(snout, rim, top, ...nostrils);
   group.position.set(x, y, 0);
+  const color = new THREE.Color(PALETTE.snoutLevels[0]);
+  const goal = new THREE.Color();
+  let currentLevel = 1;
+  let pop = 0;
   return {
     object: group,
     material,
     react(value) {
       group.scale.z = 1 - value * 0.35;
       nostrils.forEach((nostril) => nostril.scale.set(r * (0.16 + value * 0.12), r * (0.28 + value * 0.1), 1));
+    },
+    setLevel(level, time, dt) {
+      if (level !== currentLevel) {
+        pop = 1;
+        currentLevel = level;
+      }
+      pop *= Math.exp(-dt * 6);
+      goal.setHex(PALETTE.snoutLevels[Math.min(level, PALETTE.snoutLevels.length) - 1]);
+      color.lerp(goal, Math.min(1, dt * 8));
+      material.color.copy(color);
+      material.emissive.copy(color);
+      const beat = level >= PALETTE.snoutLevels.length ? Math.max(0, Math.sin(time * 9)) ** 4 * 0.08 : 0;
+      const size = 1 + (level - 1) * LEVEL_GROWTH + Math.sin(pop * Math.PI * 3) * pop * 0.25 + beat;
+      group.scale.x = size;
+      group.scale.y = size;
     },
   };
 };
@@ -132,6 +157,11 @@ export class GooglyEye {
     this.pupil.scale.set(size * 0.48, size * 0.48, size * 0.12);
     this.object.add(white, this.pupil);
     this.object.position.set(x, y, size * 0.6 + 1.2);
+  }
+
+  set shown(value: number) {
+    this.object.visible = value > 0.01;
+    this.object.scale.setScalar(value);
   }
 
   jiggle(strength: number): void {

@@ -9,7 +9,7 @@ import { Sparks, Shake, Trail } from "./effects";
 import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { Piglet } from "./piglet";
-import { GooglyEye, type Mouth, createCurlyTail, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
+import { GooglyEye, type Mouth, type Snout, createCurlyTail, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -43,6 +43,9 @@ export class TableRenderer {
   private readonly glows = new Map<string, Glow>();
   private readonly targetMeshes: THREE.Mesh[] = [];
   private readonly eyes: GooglyEye[] = [];
+  private readonly snouts: Snout[] = [];
+  private readonly thirdEyes: GooglyEye[] = [];
+  private thirdEyeShown = 0;
   private readonly mouth: Mouth;
   private mouthOpen = 0;
   private skin!: THREE.MeshStandardMaterial;
@@ -305,6 +308,9 @@ export class TableRenderer {
       if (glow.react) glow.react(glow.value);
       else if (glow.mesh) glow.mesh.scale.z = 1 - glow.value * 0.35;
     }
+    for (const snout of this.snouts) snout.setLevel(game.multiplier, this.time, dt);
+    this.thirdEyeShown += ((game.multiplier >= 3 ? 1 : 0) - this.thirdEyeShown) * Math.min(1, dt * 10);
+    for (const eye of this.thirdEyes) eye.shown = this.thirdEyeShown;
     const balls = game.world.balls;
     for (const eye of this.eyes) {
       const ex = eye.object.position.x;
@@ -408,15 +414,18 @@ export class TableRenderer {
       const snout = createSnout(bumper.x, bumper.y, bumper.r);
       this.scene.add(snout.object);
       this.glows.set(bumper.id, { material: snout.material, base: 0.15, boost: 3, value: 0, react: snout.react });
+      this.snouts.push(snout);
       this.addEye(bumper.x - bumper.r * 0.45, bumper.y + bumper.r + 0.8, 1.05);
       this.addEye(bumper.x + bumper.r * 0.5, bumper.y + bumper.r + 0.6, 0.8);
+      this.thirdEyes.push(this.addEye(bumper.x + bumper.r * 0.05, bumper.y + bumper.r + 1.9, 0.65));
     }
   }
 
-  private addEye(x: number, y: number, size: number): void {
+  private addEye(x: number, y: number, size: number): GooglyEye {
     const eye = new GooglyEye(x, y, size);
     this.eyes.push(eye);
     this.scene.add(eye.object);
+    return eye;
   }
 
   private jiggleEyes(x: number, y: number, strength: number): void {
