@@ -255,6 +255,74 @@ describe("Game", () => {
     });
   });
 
+  describe("スキルショット", () => {
+    const passLane = (game: Game, index: number) => {
+      const lane = game.layout.rollovers[index];
+      place(game, (lane.ax + lane.bx) / 2, lane.ay + 1.5, 0, -40);
+      run(game, 0.05);
+    };
+
+    const hitBumper = (game: Game) => {
+      const bumper = game.layout.bumpers[0];
+      place(game, bumper.x, bumper.y + bumper.r + 2, 0, -30);
+      run(game, 0.1);
+    };
+
+    it("ボールを置いた直後はスキルショットが点灯している", () => {
+      const game = newGame();
+      expect(game.skillShotLit).toBe(true);
+    });
+
+    it("最初に通った得点要素がロールオーバーならボーナスが入る", () => {
+      const game = newGame();
+      passLane(game, 1);
+      expect(game.score).toBe(200 + 10000);
+    });
+
+    it("先にバンパーに当たるとスキルショットは消える", () => {
+      const game = newGame();
+      hitBumper(game);
+      expect(game.skillShotLit).toBe(false);
+    });
+
+    it("取れるのは1ボールにつき1回だけ", () => {
+      const game = newGame();
+      passLane(game, 0);
+      passLane(game, 1);
+      expect(game.score).toBe(200 * 2 + 10000);
+    });
+
+    it("次のボールで再び点灯する", () => {
+      const game = newGame();
+      hitBumper(game);
+      drain(game);
+      expect(game.skillShotLit).toBe(true);
+    });
+
+    it("ボールセーブで戻ったボールでも再び点灯する", () => {
+      const game = newGame();
+      game.setPlunger(true);
+      run(game, 1.2);
+      game.setPlunger(false);
+      run(game, 1.5);
+      drain(game);
+      expect(game.skillShotLit).toBe(true);
+    });
+
+    it("実際の台で引き量を加減して打つと取れる", () => {
+      const game = newGame();
+      game.setPlunger(true);
+      run(game, 0.75);
+      game.setPlunger(false);
+      const kinds: string[] = [];
+      for (let t = 0; t < 3; t += DT) {
+        game.step(DT);
+        kinds.push(...game.drainEvents().map((e) => e.kind));
+      }
+      expect(kinds).toContain("skill");
+    });
+  });
+
   it("スピナーを勢いよく通すと回転数に応じて点が入る", () => {
     const game = newGame();
     const spinner = game.layout.spinner;

@@ -18,6 +18,7 @@ export type GameEventKind =
   | "bank"
   | "rollover"
   | "lanes"
+  | "skill"
   | "spin"
   | "rampEnter"
   | "ramp"
@@ -55,6 +56,7 @@ const SCORES = {
   rollover: 200,
   lanes: 1000,
   ramp: 2500,
+  skillShot: 10000,
 };
 
 export class Game {
@@ -67,6 +69,7 @@ export class Game {
   multiplier = 1;
   litLanes = [false, false, false];
   tilted = false;
+  skillShotLit = true;
   spinnerAngle = 0;
   private spinnerVelocity = 0;
   private ballSaveTime = 0;
@@ -172,23 +175,31 @@ export class Game {
   }
 
   private serveBall(): void {
-    const plunger = this.layout.plunger;
-    this.world.spawnBall(SHOOTER_X, plunger.restY + BALL_RADIUS + 0.01, BALL_RADIUS);
+    this.placeBallInShooterLane();
     this.multiplier = 1;
     this.litLanes = [false, false, false];
     this.tilted = false;
     this.tiltMeter = 0;
   }
 
+  private placeBallInShooterLane(): void {
+    this.world.spawnBall(SHOOTER_X, this.layout.plunger.restY + BALL_RADIUS + 0.01, BALL_RADIUS);
+    this.skillShotLit = true;
+  }
+
   private handle(event: PhysicsEvent): void {
     const { id, x, y, speed } = event;
     if (event.type === "gate") {
-      if (id === "ramp-entry" && event.layer !== LAYER_FLOOR) this.emit("rampEnter", x, y, speed);
+      if (id === "ramp-entry" && event.layer !== LAYER_FLOOR) {
+        this.skillShotLit = false;
+        this.emit("rampEnter", x, y, speed);
+      }
       if (id === "ramp-exit") this.completeRamp(x, y);
       return;
     }
     if (event.type === "sensor") {
       if (id === "spinner") {
+        this.skillShotLit = false;
         this.spinnerVelocity += speed * SPINNER_GAIN;
         return;
       }
@@ -196,7 +207,7 @@ export class Game {
         this.exitedShooterLane = true;
         return;
       }
-      this.lightLane(Number(id.split("-")[1]), x, y, speed);
+      this.passLane(Number(id.split("-")[1]), x, y, speed);
       return;
     }
     if (id.startsWith("bumper")) {
@@ -211,7 +222,9 @@ export class Game {
       this.emit("flipper", x, y, speed, id);
     } else {
       this.emit("wall", x, y, speed, id);
+      return;
     }
+    this.skillShotLit = false;
   }
 
   private completeRamp(x: number, y: number): void {
@@ -238,6 +251,15 @@ export class Game {
     if (this.targetResetTime <= 0) return;
     this.targetResetTime -= dt;
     if (this.targetResetTime <= 0) for (const target of this.targets) target.enabled = true;
+  }
+
+  private passLane(index: number, x: number, y: number, speed: number): void {
+    if (this.skillShotLit) {
+      this.skillShotLit = false;
+      this.addScore(SCORES.skillShot);
+      this.emit("skill", x, y, speed);
+    }
+    this.lightLane(index, x, y, speed);
   }
 
   private lightLane(index: number, x: number, y: number, speed: number): void {
@@ -289,7 +311,7 @@ export class Game {
         this.emit("save", ball.x, 0, 1);
         this.ballSaveTime = 0;
         this.state = "ready";
-        this.world.spawnBall(SHOOTER_X, this.layout.plunger.restY + BALL_RADIUS + 0.01, BALL_RADIUS);
+        this.placeBallInShooterLane();
         continue;
       }
       this.ballsLeft--;
