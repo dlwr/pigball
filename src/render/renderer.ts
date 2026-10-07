@@ -1,7 +1,7 @@
 import { BloomEffect, EffectComposer, EffectPass, RenderPass, ToneMappingEffect, ToneMappingMode, VignetteEffect } from "postprocessing";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import type { Game, GameEvent } from "../game/game";
+import { type Game, type GameEvent, RAMPS_FOR_EXTRA_BALL, RAMPS_FOR_MULTIBALL } from "../game/game";
 import { type Side, TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
 import type { Ball, Flipper, SegmentDef } from "../physics/world";
 import { LAYER_RAMP } from "../physics/world";
@@ -97,6 +97,7 @@ export class TableRenderer {
     this.kickbackLights = { left: this.addKickbackLight("left"), right: this.addKickbackLight("right") };
     for (const flipper of game.world.flippers) this.addFlipper(flipper);
     this.ramp = new RampView(game.layout.ramp);
+    this.ramp.addProgressLamps(RAMPS_FOR_MULTIBALL, RAMPS_FOR_EXTRA_BALL);
     this.scene.add(this.ramp.group);
 
     this.scene.add(this.sparks.points);
@@ -220,6 +221,16 @@ export class TableRenderer {
     this.ramp.update(
       dt,
       this.game.world.balls.filter((b) => b.layer === LAYER_RAMP),
+    );
+    this.ramp.setProgress(
+      {
+        towardMultiball: this.game.rampsTowardMultiball,
+        multiballAt: RAMPS_FOR_MULTIBALL,
+        inMultiball: this.game.inMultiball,
+        ramps: this.game.stats.ramps,
+        extraBallAt: RAMPS_FOR_EXTRA_BALL,
+      },
+      dt,
     );
     const [sx, sy] = this.shake.offset(dt, 1.2);
     this.camera.position.set(this.center.x + sx, this.center.y + sy, 50);
