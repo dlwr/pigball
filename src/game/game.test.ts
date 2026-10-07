@@ -603,6 +603,67 @@ describe("Game", () => {
     });
   });
 
+  describe("右のキックバック", () => {
+    const dropIntoRightOutlane = (game: Game) => {
+      place(game, 44, 26, 0, -40);
+      let kicked = false;
+      let returned = false;
+      for (let t = 0; t < 1.5 && !returned && game.ballsLeft === 3; t += DT) {
+        game.step(DT);
+        kicked ||= game.drainEvents().some((e) => e.kind === "kickback");
+        const b = ball(game);
+        returned = kicked && !!b && b.vy < 0 && b.x > 42 && b.x < 46 && b.y < 30;
+      }
+      return { kicked, returned };
+    };
+
+    const spinHard = (game: Game, passes: number) => {
+      const spinner = game.layout.spinner;
+      for (let i = 0; i < passes; i++) {
+        place(game, (spinner.ax + spinner.bx) / 2, spinner.ay - 2, 0, 300);
+        run(game, 0.02);
+        place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+        run(game, 3);
+      }
+    };
+
+    it("ゲーム開始時は消えている", () => {
+      const game = newGame();
+      expect(game.kickbacksLit.right).toBe(false);
+    });
+
+    it("スピナーを合計20回転させると点灯する", () => {
+      const game = newGame();
+      spinHard(game, 2);
+      expect(game.kickbacksLit.right).toBe(true);
+    });
+
+    it("点灯中に右アウトレーンに落ちたボールは打ち返されてアウトレーンに戻らない", () => {
+      const game = newGame();
+      spinHard(game, 2);
+      expect(dropIntoRightOutlane(game)).toEqual({ kicked: true, returned: false });
+    });
+
+    it("一度使うと消える", () => {
+      const game = newGame();
+      spinHard(game, 2);
+      dropIntoRightOutlane(game);
+      expect(game.kickbacksLit.right).toBe(false);
+    });
+
+    it("消えているときは打ち返さない", () => {
+      const game = newGame();
+      expect(dropIntoRightOutlane(game).kicked).toBe(false);
+    });
+
+    it("リスタートすると消える", () => {
+      const game = newGame();
+      spinHard(game, 2);
+      game.restart();
+      expect(game.kickbacksLit.right).toBe(false);
+    });
+  });
+
   describe("キックバック", () => {
     const dropIntoLeftOutlane = (game: Game) => {
       place(game, 2, 26, 0, -40);
@@ -623,7 +684,7 @@ describe("Game", () => {
 
     it("ゲーム開始時は点灯している", () => {
       const game = newGame();
-      expect(game.kickbackLit).toBe(true);
+      expect(game.kickbacksLit.left).toBe(true);
     });
 
     it("点灯中に左アウトレーンに落ちたボールはプレイフィールドに打ち返される", () => {
@@ -648,7 +709,7 @@ describe("Game", () => {
     it("一度使うと消える", () => {
       const game = newGame();
       dropIntoLeftOutlane(game);
-      expect(game.kickbackLit).toBe(false);
+      expect(game.kickbacksLit.left).toBe(false);
     });
 
     it("消えているときはそのままドレインする", () => {
@@ -663,14 +724,14 @@ describe("Game", () => {
       const game = newGame();
       dropIntoLeftOutlane(game);
       knockDownBank(game);
-      expect(game.kickbackLit).toBe(true);
+      expect(game.kickbacksLit.left).toBe(true);
     });
 
     it("リスタートすると再び点灯する", () => {
       const game = newGame();
       dropIntoLeftOutlane(game);
       game.restart();
-      expect(game.kickbackLit).toBe(true);
+      expect(game.kickbacksLit.left).toBe(true);
     });
   });
 

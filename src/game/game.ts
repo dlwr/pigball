@@ -1,6 +1,6 @@
 import type { PhysicsParams } from "../physics/params";
 import { type Ball, type Flipper, LAYER_FLOOR, type PhysicsEvent, type Segment, World, type WorldSnapshot } from "../physics/world";
-import { BALL_RADIUS, DRAIN_Y, PLAYFIELD_WIDTH, SHOOTER_X, type TableLayout, createLayout } from "./table";
+import { BALL_RADIUS, DRAIN_Y, PLAYFIELD_WIDTH, SHOOTER_X, type Side, type TableLayout, createLayout } from "./table";
 
 export interface ScoreStorage {
   load(): number;
@@ -25,6 +25,7 @@ export type GameEventKind =
   | "launch"
   | "save"
   | "kickback"
+  | "kickbackLit"
   | "multiball"
   | "jackpot"
   | "extraBall"
@@ -55,6 +56,7 @@ const SPINNER_POINTS_PER_TURN = 25;
 const RAMP_COMBO_SECONDS = 4;
 const RAMPS_FOR_EXTRA_BALL = 5;
 const KICKBACK_SPEED = 150;
+const SPINS_FOR_RIGHT_KICKBACK = 20;
 export const RAMPS_FOR_MULTIBALL = 3;
 const INPUT_REWIND_SECONDS = 0.024;
 const MULTIBALL_EXTRA_BALLS = 2;
@@ -112,7 +114,7 @@ export class Game {
   bonus = 0;
   inMultiball = false;
   rampsTowardMultiball = 0;
-  kickbackLit = true;
+  kickbacksLit: Record<Side, boolean> = { left: true, right: false };
   multiplier = 1;
   litLanes = [false, false, false];
   tilted = false;
@@ -123,6 +125,7 @@ export class Game {
   private exitedShooterLane = false;
   private rampCombo = 0;
   private rampComboTime = 0;
+  private spinsTowardRightKickback = 0;
   private pendingLaunches = 0;
   private autoLaunchTime = 0;
   private tiltMeter = 0;
@@ -148,7 +151,7 @@ export class Game {
     this.leftFlipper = world.addFlipper(layout.flippers.left);
     this.rightFlipper = world.addFlipper(layout.flippers.right);
     world.setPlunger(layout.plunger);
-    for (const def of [...layout.rollovers, layout.spinner, layout.shooterExit, layout.kickback]) world.addSensor(def);
+    for (const def of [...layout.rollovers, layout.spinner, layout.shooterExit, layout.kickbacks.left, layout.kickbacks.right]) world.addSensor(def);
     this.serveBall();
   }
 
@@ -213,7 +216,8 @@ export class Game {
     this.newHighScore = false;
     this.inMultiball = false;
     this.rampsTowardMultiball = 0;
-    this.kickbackLit = true;
+    this.kickbacksLit = { left: true, right: false };
+    this.spinsTowardRightKickback = 0;
     this.pendingLaunches = 0;
     this.state = "ready";
     for (const target of this.targets) target.enabled = true;
@@ -325,8 +329,8 @@ export class Game {
         this.spinnerVelocity += speed * SPINNER_GAIN;
         return;
       }
-      if (id === "kickback") {
-        this.fireKickback(event.ball);
+      if (id === "kickback-left" || id === "kickback-right") {
+        this.fireKickback(id === "kickback-left" ? "left" : "right", event.ball);
         return;
       }
       if (id === "shooter-exit") {
@@ -354,9 +358,9 @@ export class Game {
     this.skillShotLit = false;
   }
 
-  private fireKickback(ball: Ball): void {
-    if (!this.kickbackLit || ball.vy > 0) return;
-    this.kickbackLit = false;
+  private fireKickback(side: Side, ball: Ball): void {
+    if (!this.kickbacksLit[side] || ball.vy > 0) return;
+    this.kickbacksLit[side] = false;
     ball.vx = 0;
     ball.vy = KICKBACK_SPEED;
     this.emit("kickback", ball.x, ball.y, KICKBACK_SPEED);
@@ -393,7 +397,7 @@ export class Game {
       this.addScore(SCORES.bank);
       this.stats.banks++;
       this.targetResetTime = TARGET_RESET_SECONDS;
-      this.kickbackLit = true;
+      this.kickbacksLit.left = true;
       this.emit("bank", x, y, speed);
     }
   }
@@ -444,6 +448,12 @@ export class Game {
     const turns = Math.floor(this.spinnerAngle / (Math.PI * 2)) - before;
     if (turns <= 0) return;
     this.addScore(SPINNER_POINTS_PER_TURN * turns);
+    if (!this.kickbacksLit.right) this.spinsTowardRightKickback += turns;
+    if (this.spinsTowardRightKickback >= SPINS_FOR_RIGHT_KICKBACK) {
+      this.kickbacksLit.right = true;
+      this.spinsTowardRightKickback = 0;
+      this.emit("kickbackLit", 0, 0, 1, "right");
+    }
     const { spinner } = this.layout;
     this.emit("spin", (spinner.ax + spinner.bx) / 2, spinner.ay, this.spinnerVelocity);
   }
