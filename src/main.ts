@@ -25,6 +25,7 @@ const hud = new Hud(app);
 const screens = new Screens(app);
 const sfx = new Sfx();
 const music = new Music(sfx, musicPreference.load());
+hud.onTallyStep = (step, final) => sfx.tally(step, final);
 const stepper = new FixedStepper(1 / PHYSICS_HZ, PHYSICS_HZ * MAX_FRAME_SECONDS);
 const stats = { fps: 0, steps: 0, frameMs: 0 };
 const debug = new URLSearchParams(location.search).has("debug");

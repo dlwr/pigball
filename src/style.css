@@ -482,3 +482,58 @@ body {
 .shop-row.rare {
   border-bottom-color: rgba(255, 224, 102, 0.35);
 }
+
+.hud-tally {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  width: min(220px, 70vw);
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  background: rgba(20, 5, 11, 0.82);
+  border-left: 3px solid var(--cool);
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.hud-tally.show {
+  opacity: 1;
+  transition: opacity 0.1s;
+}
+
+.tally-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
+.tally-row.show,
+.tally-total.show {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.tally-mult {
+  justify-content: flex-end;
+  font-size: 18px;
+  color: var(--cool);
+}
+
+.tally-total {
+  margin-top: 4px;
+  text-align: right;
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--accent);
+  opacity: 0;
+  transform: scale(1.8);
+}
+
+.tally-total.show {
+  transition: opacity 0.08s, transform 0.18s cubic-bezier(0.3, 1.8, 0.5, 1);
+}
