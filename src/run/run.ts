@@ -9,14 +9,14 @@ export interface StageDef {
 }
 
 export const STAGES: StageDef[] = [
-  { target: 20_000, boss: false },
-  { target: 35_000, boss: false },
-  { target: 60_000, boss: true },
-  { target: 80_000, boss: false },
-  { target: 120_000, boss: false },
-  { target: 200_000, boss: true },
-  { target: 260_000, boss: false },
-  { target: 400_000, boss: true },
+  { target: 10_000, boss: false },
+  { target: 18_000, boss: false },
+  { target: 30_000, boss: true },
+  { target: 45_000, boss: false },
+  { target: 70_000, boss: false },
+  { target: 110_000, boss: true },
+  { target: 160_000, boss: false },
+  { target: 250_000, boss: true },
 ];
 
 export const BALLS_PER_STAGE = 2;
