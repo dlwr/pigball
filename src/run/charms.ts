@@ -106,6 +106,22 @@ const defs: CharmDef[] = [
     rare: true,
     effect: { score: (_kind, points, game) => points * game.multiplier },
   },
+  {
+    id: "twin-piglets",
+    name: "双子の子豚",
+    description: "打ち出すと、もう1匹が一緒に出てくる",
+    price: 10,
+    rare: true,
+    effect: {
+      event: (kind, game) => {
+        if (kind !== "launch" || game.ballsInPlay !== 1) return false;
+        game.addBall();
+        return true;
+      },
+    },
+  },
+  { id: "golden-nostrils", name: "金の鼻穴", description: "バンパーの点が20倍", price: 8, rare: true, effect: boost({ bumper: 20 }) },
+  { id: "pig-god", name: "豚の神様", description: "呪いが効かない", price: 9, rare: true, effect: {} },
 ];
 
 export const CHARMS: Record<string, CharmDef> = Object.fromEntries(defs.map((def) => [def.id, def]));

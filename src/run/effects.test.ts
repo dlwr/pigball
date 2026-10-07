@@ -101,3 +101,24 @@ describe("全体に掛かるレアなおまじない", () => {
     expect(game.score).toBe(900);
   });
 });
+
+describe("ルールを壊すレアなおまじない", () => {
+  const withCharm = (id: string) => new Game(createParams(), storage, { modifiers: [{ id, ...CHARMS[id].effect }] });
+
+  it("双子の子豚: 打ち出すともう1匹出てくる", () => {
+    const game = withCharm("twin-piglets");
+    game.setPlunger(true);
+    for (let i = 0; i < 960; i++) game.step(DT);
+    game.setPlunger(false);
+    let most = 0;
+    for (let i = 0; i < 960 * 2; i++) {
+      game.step(DT);
+      most = Math.max(most, game.ballsInPlay);
+    }
+    expect(most).toBe(2);
+  });
+
+  it("金の鼻穴: バンパーの点が20倍", () => {
+    expect(CHARMS["golden-nostrils"].effect.score?.("bumper", 100, withCharm("golden-nostrils"))).toBe(2000);
+  });
+});

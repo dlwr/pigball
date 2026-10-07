@@ -1,6 +1,10 @@
-import { type Game, type GameEvent, RAMPS_FOR_MULTIBALL } from "../game/game";
+import { type BonusKind, type BonusTally, type Game, type GameEvent, RAMPS_FOR_MULTIBALL } from "../game/game";
 import { CHARMS } from "../run/charms";
 import { type Run, STAGES } from "../run/run";
+
+const TALLY_STEP_SECONDS = 0.28;
+const TALLY_HOLD_SECONDS = 1;
+const TALLY_LABELS: Record<BonusKind, string> = { bumper: "鼻", ramp: "ホース", target: "歯", rollover: "レーン" };
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
 
@@ -18,6 +22,9 @@ export class Hud {
   private currentRun: Run | null = null;
   private readonly charms: HTMLElement;
   private readonly lastFired = new Map<string, number>();
+  private readonly tallyRoot: HTMLElement;
+  private tally: { data: BonusTally; time: number; step: number } | null = null;
+  onTallyStep: ((step: number, final: boolean) => void) | null = null;
   private toastTime = 0;
   private readonly toastQueue: string[] = [];
   private shownScore = 0;
@@ -46,7 +53,8 @@ export class Hud {
         <dl class="hud-result-stats"></dl>
         <div class="hud-result-hint"></div>
       </div>
-      <div class="hud-toast"></div>`;
+      <div class="hud-toast"></div>
+      <div class="hud-tally"></div>`;
     container.appendChild(this.root);
     this.score = this.root.querySelector(".hud-score")!;
     this.high = this.root.querySelector(".hud-high")!;
@@ -58,6 +66,7 @@ export class Hud {
     this.run = this.root.querySelector(".hud-run")!;
     this.goalBar = this.root.querySelector(".hud-goal-bar")!;
     this.charms = this.root.querySelector(".hud-charms")!;
+    this.tallyRoot = this.root.querySelector(".hud-tally")!;
   }
 
   setRun(run: Run | null): void {
@@ -70,7 +79,7 @@ export class Hud {
     this.charms.replaceChildren();
     if (!run) return;
     const entries: [string, string, boolean][] = run.charms.map((id) => [id, CHARMS[id].name, false]);
-    if (run.curse) entries.push([run.curse.id, run.curse.name, true]);
+    if (run.activeCurse) entries.push([run.activeCurse.id, run.activeCurse.name, true]);
     for (const [id, name, curse] of entries) {
       const item = document.createElement("span");
       item.className = curse ? "hud-charm curse" : "hud-charm";
@@ -116,7 +125,7 @@ export class Hud {
     else if (event.kind === "mud") this.showToast("MUDDY");
     else if (event.kind === "stageClear") this.showToast("STAGE CLEAR!");
     else if (event.kind === "fever") this.showToast("FEVER!");
-    else if (event.kind === "bonus") this.showToast(`BONUS ${event.speed.toLocaleString("en-US")}`);
+    else if (event.kind === "bonus" && event.tally) this.startTally(event.tally);
   }
 
   private rampText(combo: number, game: Game): string {
@@ -126,6 +135,42 @@ export class Hud {
 
   notice(text: string): void {
     this.showToast(text);
+  }
+
+  private startTally(data: BonusTally): void {
+    this.tallyRoot.replaceChildren();
+    for (const line of data.lines) {
+      const row = document.createElement("div");
+      row.className = "tally-row";
+      row.innerHTML = `<span>${TALLY_LABELS[line.kind]} ×${line.count}</span><span>${line.points.toLocaleString("en-US")}</span>`;
+      this.tallyRoot.appendChild(row);
+    }
+    const multiplier = document.createElement("div");
+    multiplier.className = "tally-row tally-mult";
+    multiplier.textContent = `×${data.multiplier}`;
+    const total = document.createElement("div");
+    total.className = "tally-total";
+    total.textContent = `+${Math.round(data.total).toLocaleString("en-US")}`;
+    this.tallyRoot.append(multiplier, total);
+    this.tallyRoot.classList.add("show");
+    this.tally = { data, time: 0, step: -1 };
+  }
+
+  private stepTally(dt: number): void {
+    const tally = this.tally;
+    if (!tally) return;
+    tally.time += dt;
+    const items = [...this.tallyRoot.children] as HTMLElement[];
+    const step = Math.floor(tally.time / TALLY_STEP_SECONDS);
+    while (tally.step < step && tally.step < items.length - 1) {
+      tally.step++;
+      items[tally.step].classList.add("show");
+      this.onTallyStep?.(tally.step, tally.step === items.length - 1);
+    }
+    if (tally.time > TALLY_STEP_SECONDS * items.length + TALLY_HOLD_SECONDS) {
+      this.tallyRoot.classList.remove("show");
+      this.tally = null;
+    }
   }
 
   private showToast(text: string): void {
@@ -147,6 +192,7 @@ export class Hud {
   }
 
   update(game: Game, dt: number): void {
+    this.stepTally(dt);
     if (this.toastTime > 0) {
       this.toastTime -= dt;
       if (this.toastTime <= 0) this.showNextToast();

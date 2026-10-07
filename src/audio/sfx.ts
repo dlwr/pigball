@@ -144,9 +144,6 @@ export class Sfx {
       case "save":
         this.arpeggio([392, 523, 659], 0.07, "triangle", 0.3);
         break;
-      case "bonus":
-        this.arpeggio([330, 392, 494, 587], 0.09, "triangle", 0.2);
-        break;
       case "drain":
         this.tone("sine", 160, 45, 0.35, 0.7, 0.45);
         this.burst(400, 0.12, 0.4, 3);
@@ -165,6 +162,17 @@ export class Sfx {
         this.arpeggio([523, 415, 330, 262], 0.14, "triangle", 0.35);
         break;
     }
+  }
+
+  tally(step: number, final: boolean): void {
+    if (final) {
+      this.arpeggio([784, 988, 1175, 1568], 0.04, "square", 0.25);
+      this.burst(3000, 0.2, 0.3, 0.8);
+      return;
+    }
+    const f = 440 * 2 ** (step * 3 / 12);
+    this.tone("triangle", f, f, 0.1, 0.25);
+    this.burst(2500, 0.03, 0.2, 2);
   }
 
   private voice(event: GameEvent, s: number): void {

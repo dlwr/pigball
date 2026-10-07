@@ -52,6 +52,15 @@ export interface GameEvent {
   x: number;
   y: number;
   speed: number;
+  tally?: BonusTally;
+}
+
+export type BonusKind = "bumper" | "ramp" | "target" | "rollover";
+
+export interface BonusTally {
+  lines: { kind: BonusKind; count: number; points: number }[];
+  multiplier: number;
+  total: number;
 }
 
 const BALLS_PER_GAME = 3;
@@ -158,6 +167,7 @@ export class Game {
   ballsLeft: number;
   extraBalls = 0;
   bonus = 0;
+  private bonusCounts: Record<BonusKind, number> = { bumper: 0, ramp: 0, target: 0, rollover: 0 };
   inMultiball = false;
   piggyHits = 0;
   piggyHitsToBreak = PIGGY_HITS_TO_BREAK;
@@ -395,6 +405,7 @@ export class Game {
   private serveBall(): void {
     this.placeBallInShooterLane();
     this.bonus = 0;
+    this.bonusCounts = { bumper: 0, ramp: 0, target: 0, rollover: 0 };
     this.multiplier = 1;
     this.litLanes = [false, false, false];
     this.tilted = false;
@@ -462,7 +473,7 @@ export class Game {
     }
     if (id.startsWith("bumper")) {
       this.award("bumper", SCORES.bumper);
-      this.bonus += BONUS.bumper;
+      this.addBonus("bumper");
       this.emit("bumper", x, y, speed, id);
     } else if (id === "piggy") {
       this.hitPiggy(x, y, speed);
@@ -506,6 +517,11 @@ export class Game {
     this.emit("piggyBack", piggy.x, piggy.y, 1);
   }
 
+  addBall(): void {
+    if (this.pendingLaunches === 0) this.autoLaunchTime = AUTO_LAUNCH_INTERVAL;
+    this.pendingLaunches++;
+  }
+
   get holdingInNavel(): boolean {
     return this.navelBall !== null;
   }
@@ -546,7 +562,7 @@ export class Game {
     this.rampCombo = this.rampComboTime > 0 ? this.rampCombo + 1 : 1;
     this.rampComboTime = RAMP_COMBO_SECONDS;
     this.award("ramp", SCORES.ramp * this.rampCombo);
-    this.bonus += BONUS.ramp;
+    this.addBonus("ramp");
     this.emit("ramp", x, y, this.rampCombo);
     if (this.inMultiball) {
       this.award("jackpot", SCORES.jackpot);
@@ -575,7 +591,7 @@ export class Game {
     if (!target?.enabled) return;
     target.enabled = false;
     this.award("target", SCORES.target);
-    this.bonus += BONUS.target;
+    this.addBonus("target");
     this.emit("target", x, y, speed, id);
     if (this.targets.every((t) => !t.enabled)) {
       this.award("bank", SCORES.bank);
@@ -606,7 +622,7 @@ export class Game {
     if (this.litLanes[index]) return;
     this.litLanes[index] = true;
     this.award("rollover", SCORES.rollover);
-    this.bonus += BONUS.rollover;
+    this.addBonus("rollover");
     this.emit("rollover", x, y, speed, `rollover-${index}`);
     if (this.litLanes.every(Boolean)) {
       this.award("lanes", SCORES.lanes);
@@ -700,11 +716,23 @@ export class Game {
     }
   }
 
+  private addBonus(kind: BonusKind): void {
+    this.bonus += BONUS[kind];
+    this.bonusCounts[kind]++;
+  }
+
   private awardBonus(): void {
     if (this.tilted || this.bonus === 0) return;
+    const before = this.score;
+    const multiplier = this.multiplier;
     this.award("bonus", this.bonus);
-    this.emit("bonus", 23, 30, this.bonus * this.multiplier);
+    const lines = (Object.keys(this.bonusCounts) as BonusKind[])
+      .filter((kind) => this.bonusCounts[kind] > 0)
+      .map((kind) => ({ kind, count: this.bonusCounts[kind], points: this.bonusCounts[kind] * BONUS[kind] }));
+    const total = this.score - before;
+    this.events.push({ kind: "bonus", x: 23, y: 30, speed: total, tally: { lines, multiplier, total } });
   }
+
 
   private emit(kind: GameEventKind, x: number, y: number, speed: number, id?: string): void {
     this.events.push({ kind, id, x, y, speed });
