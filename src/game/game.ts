@@ -24,6 +24,8 @@ export type GameEventKind =
   | "ramp"
   | "launch"
   | "save"
+  | "multiball"
+  | "jackpot"
   | "extraBall"
   | "shootAgain"
   | "drain"
@@ -51,6 +53,12 @@ const SPINNER_DECAY = 1.5;
 const SPINNER_POINTS_PER_TURN = 25;
 const RAMP_COMBO_SECONDS = 4;
 const RAMPS_FOR_EXTRA_BALL = 5;
+const MULTIBALL_COMBO = 3;
+const MULTIBALL_EXTRA_BALLS = 2;
+const MULTIBALL_SAVE_SECONDS = 10;
+const AUTO_LAUNCH_INTERVAL = 0.7;
+const AUTO_LAUNCH_Y = 10;
+const AUTO_LAUNCH_SPEED = 180;
 
 const SCORES = {
   bumper: 100,
@@ -60,6 +68,7 @@ const SCORES = {
   rollover: 200,
   lanes: 1000,
   ramp: 2500,
+  jackpot: 20000,
   skillShot: 10000,
 };
 
@@ -79,6 +88,7 @@ export class Game {
   ballsLeft = BALLS_PER_GAME;
   extraBalls = 0;
   bonus = 0;
+  inMultiball = false;
   multiplier = 1;
   litLanes = [false, false, false];
   tilted = false;
@@ -90,6 +100,8 @@ export class Game {
   private rampCombo = 0;
   private rampComboTime = 0;
   private rampsThisGame = 0;
+  private pendingLaunches = 0;
+  private autoLaunchTime = 0;
   private tiltMeter = 0;
   private targetResetTime = 0;
   private readonly targets: Segment[];
@@ -118,6 +130,10 @@ export class Game {
 
   get ballSaveActive(): boolean {
     return this.ballSaveTime > 0;
+  }
+
+  get ballsInPlay(): number {
+    return this.world.balls.length + this.pendingLaunches;
   }
 
   get plungerPull(): number {
@@ -165,6 +181,8 @@ export class Game {
     this.ballsLeft = BALLS_PER_GAME;
     this.extraBalls = 0;
     this.rampsThisGame = 0;
+    this.inMultiball = false;
+    this.pendingLaunches = 0;
     this.state = "ready";
     for (const target of this.targets) target.enabled = true;
     this.targetResetTime = 0;
@@ -188,6 +206,8 @@ export class Game {
     this.stepTargets(dt);
     this.checkLaunched();
     this.checkDrain();
+    this.stepAutoLaunch(dt);
+    if (this.inMultiball && this.ballsInPlay <= 1) this.inMultiball = false;
   }
 
   private serveBall(): void {
@@ -202,6 +222,26 @@ export class Game {
   private placeBallInShooterLane(): void {
     this.world.spawnBall(SHOOTER_X, this.layout.plunger.restY + BALL_RADIUS + 0.01, BALL_RADIUS);
     this.skillShotLit = true;
+    this.exitedShooterLane = false;
+  }
+
+  private startMultiball(x: number, y: number): void {
+    this.inMultiball = true;
+    this.pendingLaunches += MULTIBALL_EXTRA_BALLS;
+    this.autoLaunchTime = AUTO_LAUNCH_INTERVAL;
+    this.ballSaveTime = MULTIBALL_SAVE_SECONDS;
+    this.emit("multiball", x, y, 1);
+  }
+
+  private stepAutoLaunch(dt: number): void {
+    if (this.pendingLaunches === 0) return;
+    this.autoLaunchTime -= dt;
+    if (this.autoLaunchTime > 0) return;
+    this.autoLaunchTime = AUTO_LAUNCH_INTERVAL;
+    this.pendingLaunches--;
+    const ball = this.world.spawnBall(SHOOTER_X, AUTO_LAUNCH_Y, BALL_RADIUS);
+    ball.vy = AUTO_LAUNCH_SPEED;
+    this.emit("launch", SHOOTER_X, AUTO_LAUNCH_Y, 1);
   }
 
   private handle(event: PhysicsEvent): void {
@@ -251,6 +291,12 @@ export class Game {
     this.addScore(SCORES.ramp * this.rampCombo);
     this.bonus += BONUS.ramp;
     this.emit("ramp", x, y, this.rampCombo);
+    if (this.inMultiball) {
+      this.addScore(SCORES.jackpot);
+      this.emit("jackpot", x, y, 1);
+    } else if (this.rampCombo >= MULTIBALL_COMBO && this.state === "playing") {
+      this.startMultiball(x, y);
+    }
     if (++this.rampsThisGame === RAMPS_FOR_EXTRA_BALL) {
       this.extraBalls++;
       this.emit("extraBall", x, y, 1);
@@ -331,7 +377,12 @@ export class Game {
     for (const ball of [...this.world.balls]) {
       if (ball.y >= DRAIN_Y) continue;
       this.world.removeBall(ball);
-      if (this.world.balls.length > 0) continue;
+      if (this.inMultiball && this.ballSaveActive && !this.tilted) {
+        this.pendingLaunches++;
+        this.emit("save", ball.x, 0, 1);
+        continue;
+      }
+      if (this.ballsInPlay > 0) continue;
       if (this.ballSaveActive && !this.tilted) {
         this.emit("save", ball.x, 0, 1);
         this.ballSaveTime = 0;
