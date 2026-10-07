@@ -297,7 +297,7 @@ export class TableRenderer {
         towardMultiball: this.game.rampsTowardMultiball,
         multiballAt: RAMPS_FOR_MULTIBALL,
         inMultiball: this.game.inMultiball,
-        ramps: this.game.stats.ramps,
+        ramps: this.game.rampsTowardExtraBall,
         extraBallAt: RAMPS_FOR_EXTRA_BALL,
       },
       dt,
