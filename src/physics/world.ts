@@ -101,6 +101,13 @@ export type PhysicsEvent =
   | { type: "sensor"; id: string; speed: number; x: number; y: number; ball: Ball }
   | { type: "gate"; id: string; layer: number; speed: number; x: number; y: number };
 
+export interface WorldSnapshot {
+  balls: { ball: Ball; state: Ball }[];
+  flippers: Flipper[];
+  plunger: Plunger | null;
+  recharges: number[];
+}
+
 const CONTACT_EVENT_SPEED = 4;
 const BUMPER_RECHARGE_SECONDS = 0.12;
 const BALL_RESTITUTION = 0.9;
@@ -166,6 +173,23 @@ export class World {
       ball.vx += dvx;
       ball.vy += dvy;
     }
+  }
+
+  snapshot(): WorldSnapshot {
+    return {
+      balls: this.balls.map((ball) => ({ ball, state: { ...ball } })),
+      flippers: this.flippers.map((flipper) => ({ ...flipper })),
+      plunger: this.plunger && { ...this.plunger },
+      recharges: this.bumpers.map((bumper) => bumper.recharge),
+    };
+  }
+
+  restore(snapshot: WorldSnapshot): void {
+    this.balls.length = 0;
+    for (const { ball, state } of snapshot.balls) this.balls.push(Object.assign(ball, state));
+    snapshot.flippers.forEach((state, i) => Object.assign(this.flippers[i], state));
+    if (this.plunger && snapshot.plunger) Object.assign(this.plunger, snapshot.plunger);
+    snapshot.recharges.forEach((recharge, i) => (this.bumpers[i].recharge = recharge));
   }
 
   drainEvents(): PhysicsEvent[] {

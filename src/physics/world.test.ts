@@ -264,6 +264,27 @@ describe("World", () => {
     });
   });
 
+  describe("スナップショット", () => {
+    it("復元するとボールの位置と速度が戻る", () => {
+      const world = new World(createParams());
+      const ball = world.spawnBall(25, 50);
+      const snapshot = world.snapshot();
+      run(world, 0.1);
+      world.restore(snapshot);
+      expect([ball.x, ball.y, ball.vx, ball.vy]).toEqual([25, 50, 0, 0]);
+    });
+
+    it("復元するとフリッパーの角度が戻る", () => {
+      const world = new World(createParams());
+      const flipper = world.addFlipper(leftFlipper);
+      const snapshot = world.snapshot();
+      flipper.pressed = true;
+      run(world, 0.1);
+      world.restore(snapshot);
+      expect(flipper.angle).toBe(leftFlipper.restAngle);
+    });
+  });
+
   describe("ボール同士", () => {
     const zeroGravityWorld = () => {
       const params = createParams();

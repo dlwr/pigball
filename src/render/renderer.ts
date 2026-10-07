@@ -110,14 +110,14 @@ export class TableRenderer {
   }
 
   resize(): void {
-    const width = this.container.clientWidth;
+    const tableW = TABLE_WIDTH + MARGIN * 2;
+    const tableH = VIEW_TOP - VIEW_BOTTOM;
     const height = this.container.clientHeight;
+    const width = Math.min(this.container.clientWidth, Math.ceil(height * (tableW / tableH)));
     this.renderer.setSize(width, height);
     this.composer.setSize(width, height);
     const aspect = width / height;
-    const tableW = TABLE_WIDTH + MARGIN * 2;
-    const tableH = VIEW_TOP - VIEW_BOTTOM;
-    const viewH = aspect > tableW / tableH ? tableH : tableW / aspect;
+    const viewH = aspect >= tableW / tableH ? tableH : tableW / aspect;
     const viewW = viewH * aspect;
     this.camera.left = -viewW / 2;
     this.camera.right = viewW / 2;
