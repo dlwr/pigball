@@ -22,6 +22,7 @@ export const PALETTE = {
   spark: 0xffb070,
   ramp: 0xff7aa8,
   rampHot: 0xff2d6f,
+  snoutLevels: [0xff8aa5, 0xff4d6d, 0xc04dff, 0x4d8bff, 0xffc94a],
   truffle: 0xffc94a,
   mouth: 0x1c0509,
   tongue: 0xff6f93,
