@@ -79,7 +79,7 @@ export class Hud {
     this.charms.replaceChildren();
     if (!run) return;
     const entries: [string, string, boolean][] = run.charms.map((id) => [id, CHARMS[id].name, false]);
-    if (run.curse) entries.push([run.curse.id, run.curse.name, true]);
+    if (run.activeCurse) entries.push([run.activeCurse.id, run.activeCurse.name, true]);
     for (const [id, name, curse] of entries) {
       const item = document.createElement("span");
       item.className = curse ? "hud-charm curse" : "hud-charm";

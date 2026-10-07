@@ -537,3 +537,14 @@ body {
 .tally-total.show {
   transition: opacity 0.08s, transform 0.18s cubic-bezier(0.3, 1.8, 0.5, 1);
 }
+
+.screen-curse.warded strong {
+  text-decoration: line-through;
+}
+
+.screen-curse em {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  color: var(--cool);
+}

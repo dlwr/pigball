@@ -60,7 +60,7 @@ export class Screens {
     this.show(
       `<div class="screen-kicker">STAGE ${run.stage + 1} / ${STAGES.length}${stage.boss ? " · BOSS" : ""}</div>
        <div class="screen-goal"><span>目標</span>${format(stage.target)}</div>
-       ${curse ? `<div class="screen-curse"><strong>${escape(curse.name)}</strong>${escape(curse.description)}</div>` : `<p class="screen-lead">呪いなし</p>`}
+       ${curse ? `<div class="screen-curse${run.activeCurse ? "" : " warded"}"><strong>${escape(curse.name)}</strong>${escape(curse.description)}${run.activeCurse ? "" : "<em>豚の神様が打ち消している</em>"}</div>` : `<p class="screen-lead">呪いなし</p>`}
        ${this.charmList(run)}`,
       [{ label: isTouch() ? "タップではじめる" : "Space ではじめる", run: onStart, primary: true }],
     );
