@@ -55,7 +55,7 @@ const SPINNER_POINTS_PER_TURN = 25;
 const RAMP_COMBO_SECONDS = 4;
 const RAMPS_FOR_EXTRA_BALL = 5;
 const KICKBACK_SPEED = 150;
-const MULTIBALL_COMBO = 3;
+export const RAMPS_FOR_MULTIBALL = 3;
 const INPUT_REWIND_SECONDS = 0.024;
 const MULTIBALL_EXTRA_BALLS = 2;
 const MULTIBALL_SAVE_SECONDS = 10;
@@ -111,6 +111,7 @@ export class Game {
   extraBalls = 0;
   bonus = 0;
   inMultiball = false;
+  rampsTowardMultiball = 0;
   kickbackLit = true;
   multiplier = 1;
   litLanes = [false, false, false];
@@ -211,6 +212,7 @@ export class Game {
     this.stats = emptyStats();
     this.newHighScore = false;
     this.inMultiball = false;
+    this.rampsTowardMultiball = 0;
     this.kickbackLit = true;
     this.pendingLaunches = 0;
     this.state = "ready";
@@ -370,7 +372,8 @@ export class Game {
       this.addScore(SCORES.jackpot);
       this.stats.jackpots++;
       this.emit("jackpot", x, y, 1);
-    } else if (this.rampCombo >= MULTIBALL_COMBO && this.state === "playing") {
+    } else if (++this.rampsTowardMultiball >= RAMPS_FOR_MULTIBALL && this.state === "playing") {
+      this.rampsTowardMultiball = 0;
       this.startMultiball(x, y);
     }
     if (++this.stats.ramps === RAMPS_FOR_EXTRA_BALL) {
