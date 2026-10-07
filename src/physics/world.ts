@@ -98,7 +98,7 @@ export interface LayerGateDef {
 
 export type PhysicsEvent =
   | { type: "contact"; id: string; speed: number; x: number; y: number }
-  | { type: "sensor"; id: string; speed: number; x: number; y: number }
+  | { type: "sensor"; id: string; speed: number; x: number; y: number; ball: Ball }
   | { type: "gate"; id: string; layer: number; speed: number; x: number; y: number };
 
 const CONTACT_EVENT_SPEED = 4;
@@ -328,7 +328,7 @@ export class World {
 
   private checkSensor(ball: Ball, sensor: SensorDef): void {
     if (!segmentsCross(ball.prevX, ball.prevY, ball.x, ball.y, sensor.ax, sensor.ay, sensor.bx, sensor.by)) return;
-    this.events.push({ type: "sensor", id: sensor.id, speed: Math.hypot(ball.vx, ball.vy), x: ball.x, y: ball.y });
+    this.events.push({ type: "sensor", id: sensor.id, speed: Math.hypot(ball.vx, ball.vy), x: ball.x, y: ball.y, ball });
   }
 
   private resolve(ball: Ball, nx: number, ny: number, penetration: number, svx: number, svy: number, restitution: number): number {

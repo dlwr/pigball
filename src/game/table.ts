@@ -17,6 +17,7 @@ export interface TableLayout {
   rollovers: SensorDef[];
   spinner: SensorDef;
   shooterExit: SensorDef;
+  kickback: SensorDef;
   ramp: Ramp;
 }
 
@@ -98,6 +99,7 @@ export const createLayout = (): TableLayout => ({
   rollovers: [15, 21, 27].map((x, i) => ({ id: `rollover-${i}`, ax: x, ay: 89, bx: x + 6, by: 89 })),
   spinner: { id: "spinner", ax: 34, ay: 80, bx: 40, by: 80 },
   shooterExit: { id: "shooter-exit", ax: 46, ay: 78, bx: 50, by: 78 },
+  kickback: { id: "kickback", ax: 0, ay: 10, bx: 4, by: 10 },
   ramp: createRamp(),
 });
 
