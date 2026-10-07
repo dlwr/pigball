@@ -659,6 +659,55 @@ describe("Game", () => {
     });
   });
 
+  describe("入力遅延の補正", () => {
+    const rollOffLeftFlipper = (game: Game) => place(game, 16, 13.5);
+
+    const timeToFallPastFlipper = () => {
+      const game = newGame();
+      rollOffLeftFlipper(game);
+      let t = 0;
+      while (ball(game).y > 6) {
+        game.step(DT);
+        t += DT;
+      }
+      return t;
+    };
+
+    it("押す少し前に先端から転がり落ちかけたボールも打ち返せる", () => {
+      const pressAt = timeToFallPastFlipper() - 0.095;
+      const game = newGame();
+      rollOffLeftFlipper(game);
+      let hit = false;
+      for (let t = 0; t < pressAt + 0.5 && !hit; t += DT) {
+        if (t >= pressAt) game.setFlipper("left", true);
+        game.step(DT);
+        hit = ball(game).vy > 40 && ball(game).y > 8;
+      }
+      expect(hit).toBe(true);
+    });
+
+    it("押した瞬間からフリッパーが上がり始めている", () => {
+      const game = newGame();
+      run(game, 0.1);
+      game.setFlipper("left", true);
+      expect(game.world.flippers[0].angle).toBeGreaterThan(game.layout.flippers.left.restAngle);
+    });
+
+    it("直前に得点要素に当たっていたら巻き戻さず、二重に得点しない", () => {
+      const game = newGame();
+      const [ax, ay, bx, by] = [7.8, 29, 12.3, 19.5];
+      const [mx, my] = [(ax + bx) / 2, (ay + by) / 2];
+      place(game, mx + 3, my + 1, -60, 0);
+      let slung = false;
+      for (let t = 0; t < 0.5 && !slung; t += DT) {
+        game.step(DT);
+        slung = game.drainEvents().some((e) => e.kind === "sling");
+      }
+      game.setFlipper("left", true);
+      expect(game.score).toBe(10);
+    });
+  });
+
   describe("チルト", () => {
     it("短時間に揺らしすぎるとフリッパーが効かなくなる", () => {
       const game = newGame();

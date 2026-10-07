@@ -1,5 +1,5 @@
 import type { PhysicsParams } from "../physics/params";
-import { type Ball, type Flipper, LAYER_FLOOR, type PhysicsEvent, type Segment, World } from "../physics/world";
+import { type Ball, type Flipper, LAYER_FLOOR, type PhysicsEvent, type Segment, World, type WorldSnapshot } from "../physics/world";
 import { BALL_RADIUS, DRAIN_Y, PLAYFIELD_WIDTH, SHOOTER_X, type TableLayout, createLayout } from "./table";
 
 export interface ScoreStorage {
@@ -56,6 +56,7 @@ const RAMP_COMBO_SECONDS = 4;
 const RAMPS_FOR_EXTRA_BALL = 5;
 const KICKBACK_SPEED = 150;
 const MULTIBALL_COMBO = 3;
+const INPUT_REWIND_SECONDS = 0.024;
 const MULTIBALL_EXTRA_BALLS = 2;
 const MULTIBALL_SAVE_SECONDS = 10;
 const AUTO_LAUNCH_INTERVAL = 0.7;
@@ -80,6 +81,14 @@ const BONUS = {
   rollover: 100,
   ramp: 1000,
 };
+
+interface HistoryEntry {
+  snapshot: WorldSnapshot;
+  dt: number;
+  replayable: boolean;
+}
+
+const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target)/.test(event.id);
 
 export class Game {
   readonly world: World;
@@ -111,6 +120,7 @@ export class Game {
   private readonly leftFlipper: Flipper;
   private readonly rightFlipper: Flipper;
   private events: GameEvent[] = [];
+  private history: HistoryEntry[] = [];
 
   constructor(
     params: PhysicsParams,
@@ -150,7 +160,11 @@ export class Game {
   setFlipper(side: "left" | "right", pressed: boolean): void {
     if (this.tilted || this.state === "over") pressed = false;
     const flipper = side === "left" ? this.leftFlipper : this.rightFlipper;
-    if (pressed && !flipper.pressed) this.rotateLanes(side === "left" ? 1 : -1);
+    if (pressed && !flipper.pressed) {
+      this.rotateLanes(side === "left" ? 1 : -1);
+      this.pressWithRewind(flipper);
+      return;
+    }
     flipper.pressed = pressed;
   }
 
@@ -166,6 +180,7 @@ export class Game {
   nudge(dx: number, dy: number): void {
     if (this.state === "over" || this.tilted) return;
     this.world.nudge(dx * NUDGE_SPEED, dy * NUDGE_SPEED);
+    this.history = [];
     this.tiltMeter += Math.hypot(dx, dy);
     if (this.tiltMeter > TILT_LIMIT) {
       this.tilted = true;
@@ -191,6 +206,7 @@ export class Game {
     for (const target of this.targets) target.enabled = true;
     this.targetResetTime = 0;
     for (const ball of [...this.world.balls]) this.world.removeBall(ball);
+    this.history = [];
     this.serveBall();
   }
 
@@ -201,8 +217,11 @@ export class Game {
   }
 
   step(dt: number): void {
+    const snapshot = this.world.snapshot();
     this.world.step(dt);
-    for (const event of this.world.drainEvents()) this.handle(event);
+    const events = this.world.drainEvents();
+    this.record({ snapshot, dt, replayable: events.every(isReplayable) });
+    for (const event of events) this.handle(event);
     this.ballSaveTime = Math.max(0, this.ballSaveTime - dt);
     this.rampComboTime = Math.max(0, this.rampComboTime - dt);
     this.tiltMeter = Math.max(0, this.tiltMeter - TILT_DECAY * dt);
@@ -212,6 +231,35 @@ export class Game {
     this.checkDrain();
     this.stepAutoLaunch(dt);
     if (this.inMultiball && this.ballsInPlay <= 1) this.inMultiball = false;
+  }
+
+  private record(entry: HistoryEntry): void {
+    this.history.push(entry);
+    let span = this.history.reduce((sum, e) => sum + e.dt, 0);
+    while (span - this.history[0].dt >= INPUT_REWIND_SECONDS) span -= this.history.shift()!.dt;
+  }
+
+  private pressWithRewind(flipper: Flipper): void {
+    let start = this.history.length;
+    while (start > 0 && this.history[start - 1].replayable) start--;
+    const replay = this.history.slice(start);
+    this.history = [];
+    const balls = this.world.balls;
+    const sameBalls = replay[0]?.snapshot.balls.length === balls.length && replay[0].snapshot.balls.every(({ ball }) => balls.includes(ball));
+    if (!sameBalls) {
+      flipper.pressed = true;
+      return;
+    }
+    const pressed = this.world.flippers.map((f) => f.pressed);
+    const plunger = this.world.plunger && { held: this.world.plunger.held, pullLimit: this.world.plunger.pullLimit };
+    this.world.restore(replay[0].snapshot);
+    this.world.flippers.forEach((f, i) => (f.pressed = pressed[i]));
+    if (this.world.plunger && plunger) Object.assign(this.world.plunger, plunger);
+    flipper.pressed = true;
+    for (const { dt } of replay) {
+      this.world.step(dt);
+      for (const event of this.world.drainEvents()) this.handle(event);
+    }
   }
 
   private serveBall(): void {
