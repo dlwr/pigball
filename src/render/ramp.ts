@@ -9,6 +9,15 @@ const FALL_LENGTH = 14;
 const RAIL_HEIGHT = 1.1;
 const RAIL_THICKNESS = 0.35;
 const SUPPORT_EVERY = 14;
+const BULGE_WIDTH = 1.4;
+const BULGE_RADIUS = 2.2;
+
+interface RailPlacement {
+  center: THREE.Vector3;
+  outward: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+  length: number;
+}
 
 const smoothstep = (t: number) => {
   const x = Math.max(0, Math.min(1, t));
@@ -20,6 +29,12 @@ export class RampView {
   private readonly lengths: number[];
   private readonly total: number;
   private readonly railMaterial: THREE.MeshStandardMaterial;
+  private readonly rails: THREE.InstancedMesh;
+  private readonly placements: RailPlacement[] = [];
+  private readonly bulges: number[];
+  private readonly matrix = new THREE.Matrix4();
+  private readonly position = new THREE.Vector3();
+  private readonly scale = new THREE.Vector3();
   private glow = 0;
 
   constructor(private readonly ramp: Ramp) {
@@ -38,7 +53,9 @@ export class RampView {
       metalness: 0.3,
       roughness: 0.4,
     });
-    this.group.add(this.createRails());
+    this.rails = this.createRails();
+    this.bulges = this.placements.map(() => 0);
+    this.group.add(this.rails);
     this.group.add(this.createSupports());
   }
 
@@ -72,9 +89,24 @@ export class RampView {
     this.glow = 1;
   }
 
-  update(dt: number): void {
+  update(dt: number, ballsOnRamp: { x: number; y: number }[]): void {
     this.glow *= Math.exp(-dt * 4);
     this.railMaterial.emissiveIntensity = 0.25 + this.glow * 5;
+    let changed = false;
+    this.placements.forEach((rail, i) => {
+      const nearest = ballsOnRamp.reduce((d, b) => Math.min(d, Math.hypot(b.x - rail.center.x, b.y - rail.center.y)), Infinity);
+      const goal = BULGE_WIDTH * Math.exp(-((nearest / BULGE_RADIUS) ** 2));
+      const bulge = this.bulges[i] + (goal - this.bulges[i]) * Math.min(1, dt * 18);
+      if (Math.abs(bulge - this.bulges[i]) < 1e-4 && goal < 1e-3) return;
+      this.bulges[i] = bulge;
+      this.position.copy(rail.center).addScaledVector(rail.outward, bulge);
+      this.position.z += bulge * 0.35;
+      this.scale.set(rail.length + RAIL_THICKNESS, 1 + bulge * 0.6, 1 + bulge * 0.8);
+      this.matrix.compose(this.position, rail.quaternion, this.scale);
+      this.rails.setMatrixAt(i, this.matrix);
+      changed = true;
+    });
+    if (changed) this.rails.instanceMatrix.needsUpdate = true;
   }
 
   private normalAt(i: number): [number, number] {
@@ -118,15 +150,19 @@ export class RampView {
     const { rails } = this.ramp;
     const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, RAIL_THICKNESS, RAIL_HEIGHT), this.railMaterial, rails.length);
     const matrix = new THREE.Matrix4();
-    const quaternion = new THREE.Quaternion();
     const axis = new THREE.Vector3(0, 0, 1);
+    const { path } = this.ramp;
     rails.forEach((rail, i) => {
       const length = Math.hypot(rail.bx - rail.ax, rail.by - rail.ay);
       const cx = (rail.ax + rail.bx) / 2;
       const cy = (rail.ay + rail.by) / 2;
       const z = this.heightAt(cx, cy);
-      quaternion.setFromAxisAngle(axis, Math.atan2(rail.by - rail.ay, rail.bx - rail.ax));
-      matrix.compose(new THREE.Vector3(cx, cy, z + RAIL_HEIGHT / 2), quaternion, new THREE.Vector3(length + RAIL_THICKNESS, 1, 1));
+      const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, Math.atan2(rail.by - rail.ay, rail.bx - rail.ax));
+      const [px, py] = path.reduce((best, p) => (Math.hypot(p[0] - cx, p[1] - cy) < Math.hypot(best[0] - cx, best[1] - cy) ? p : best));
+      const outward = new THREE.Vector3(cx - px, cy - py, 0).normalize();
+      const center = new THREE.Vector3(cx, cy, z + RAIL_HEIGHT / 2);
+      this.placements.push({ center, outward, quaternion, length });
+      matrix.compose(center, quaternion, new THREE.Vector3(length + RAIL_THICKNESS, 1, 1));
       mesh.setMatrixAt(i, matrix);
     });
     mesh.castShadow = true;

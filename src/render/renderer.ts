@@ -198,6 +198,7 @@ export class TableRenderer {
         break;
       case "launch":
         this.shake.add(0.1 + event.speed * 0.2);
+        if (this.game.inMultiball) this.sparks.burst(event.x, event.y, 40, 30, new THREE.Color(PALETTE.pigSkin), 3);
         break;
       case "drain":
         this.mouthOpen = 1;
@@ -216,7 +217,10 @@ export class TableRenderer {
     this.syncFlippers(alpha);
     this.syncProps(dt);
     this.sparks.update(dt);
-    this.ramp.update(dt);
+    this.ramp.update(
+      dt,
+      this.game.world.balls.filter((b) => b.layer === LAYER_RAMP),
+    );
     const [sx, sy] = this.shake.offset(dt, 1.2);
     this.camera.position.set(this.center.x + sx, this.center.y + sy, 50);
     this.composer.render(dt);
@@ -256,6 +260,7 @@ export class TableRenderer {
       const across = 1 / Math.sqrt(along);
       const lift = 1 + (z - ball.r) * 0.035;
       view.piglet.update(x, y, z, ball.vx, ball.vy, ball.r * lift, along, across, dt);
+      view.piglet.setWrapped(ball.layer === LAYER_RAMP, dt);
       view.trail.update(x, y, z - ball.r + 0.3, speed);
     }
   }
