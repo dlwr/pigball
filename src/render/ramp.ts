@@ -12,6 +12,18 @@ const SUPPORT_EVERY = 14;
 const BULGE_WIDTH = 1.4;
 const BULGE_RADIUS = 2.2;
 
+export interface RampProgress {
+  towardMultiball: number;
+  multiballAt: number;
+  inMultiball: boolean;
+  ramps: number;
+  extraBallAt: number;
+}
+
+const LAMP_SPACING = 3.1;
+const LAMP_RADIUS = 1.15;
+const MARK_RADIUS = 0.6;
+
 interface RailPlacement {
   center: THREE.Vector3;
   outward: THREE.Vector3;
@@ -35,6 +47,14 @@ export class RampView {
   private readonly matrix = new THREE.Matrix4();
   private readonly position = new THREE.Vector3();
   private readonly scale = new THREE.Vector3();
+  private readonly floorMaterial: THREE.MeshStandardMaterial;
+  private readonly lampMaterials: THREE.MeshStandardMaterial[] = [];
+  private readonly markMaterials: THREE.MeshStandardMaterial[] = [];
+  private readonly cool = new THREE.Color(PALETTE.ramp);
+  private readonly hot = new THREE.Color(PALETTE.rampHot);
+  private readonly truffle = new THREE.Color(PALETTE.truffle);
+  private readonly tint = new THREE.Color();
+  private time = 0;
   private glow = 0;
 
   constructor(private readonly ramp: Ramp) {
@@ -45,7 +65,9 @@ export class RampView {
     }
     this.total = this.lengths[this.lengths.length - 1];
 
-    this.group.add(this.createFloor());
+    const floor = this.createFloor();
+    this.floorMaterial = floor.material as THREE.MeshStandardMaterial;
+    this.group.add(floor);
     this.railMaterial = new THREE.MeshStandardMaterial({
       color: PALETTE.ramp,
       emissive: PALETTE.ramp,
@@ -57,6 +79,59 @@ export class RampView {
     this.bulges = this.placements.map(() => 0);
     this.group.add(this.rails);
     this.group.add(this.createSupports());
+  }
+
+  addProgressLamps(multiballAt: number, extraBallAt: number): void {
+    const { path } = this.ramp;
+    const [x0, y0] = path[0];
+    const [x1, y1] = path[1];
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const [dx, dy] = [(x1 - x0) / len, (y1 - y0) / len];
+    for (let i = 0; i < multiballAt; i++) {
+      const material = new THREE.MeshStandardMaterial({ color: 0x1a0610, emissive: PALETTE.pigSkin, emissiveIntensity: 0, roughness: 0.5 });
+      const lamp = new THREE.Mesh(new THREE.CircleGeometry(LAMP_RADIUS, 24), material);
+      const back = (multiballAt - i) * LAMP_SPACING;
+      lamp.position.set(x0 - dx * back, y0 - dy * back, 0.03);
+      const nostrils = new THREE.Mesh(new THREE.CircleGeometry(0.2, 10), new THREE.MeshBasicMaterial({ color: PALETTE.pigNostril }));
+      for (const side of [-1, 1]) {
+        const nostril = nostrils.clone();
+        nostril.position.set(side * 0.38, 0, 0.01);
+        nostril.scale.set(0.8, 1.3, 1);
+        lamp.add(nostril);
+      }
+      this.lampMaterials.push(material);
+      this.group.add(lamp);
+    }
+    for (let i = 0; i < extraBallAt; i++) {
+      const s = this.total * (0.18 + (0.64 * i) / (extraBallAt - 1));
+      const index = this.lengths.findIndex((l) => l >= s);
+      const [x, y] = path[index];
+      const material = new THREE.MeshStandardMaterial({ color: 0x1a0610, emissive: PALETTE.truffle, emissiveIntensity: 0, roughness: 0.4 });
+      const mark = new THREE.Mesh(new THREE.CircleGeometry(MARK_RADIUS, 16), material);
+      mark.position.set(x, y, this.heightAtLength(this.lengths[index]) + 0.04);
+      this.markMaterials.push(material);
+      this.group.add(mark);
+    }
+  }
+
+  setProgress(progress: RampProgress, dt: number): void {
+    this.time += dt;
+    const { towardMultiball, multiballAt, inMultiball, ramps, extraBallAt } = progress;
+    const ready = !inMultiball && towardMultiball === multiballAt - 1;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * (inMultiball ? 10 : 6));
+    this.lampMaterials.forEach((material, i) => {
+      const lit = inMultiball || i < towardMultiball;
+      const blinking = ready && i === towardMultiball;
+      material.emissiveIntensity = lit ? (inMultiball ? 0.6 + pulse * 0.6 : 0.9) : blinking ? pulse * 0.9 : 0.04;
+    });
+    this.markMaterials.forEach((material, i) => {
+      material.emissiveIntensity = i < ramps ? (ramps >= extraBallAt ? 0.5 + pulse * 0.4 : 0.8) : 0.04;
+    });
+    if (inMultiball) this.tint.copy(this.hot).lerp(this.truffle, pulse);
+    else this.tint.copy(this.cool).lerp(this.hot, towardMultiball / (multiballAt - 1) * (ready ? 0.6 + pulse * 0.4 : 1));
+    this.floorMaterial.color.copy(this.tint);
+    this.railMaterial.color.copy(this.tint);
+    this.railMaterial.emissive.copy(this.tint);
   }
 
   heightAtLength(s: number): number {

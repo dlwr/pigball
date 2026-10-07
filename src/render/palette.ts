@@ -21,6 +21,8 @@ export const PALETTE = {
   gum: 0xe8708c,
   spark: 0xffb070,
   ramp: 0xff7aa8,
+  rampHot: 0xff2d6f,
+  truffle: 0xffc94a,
   mouth: 0x1c0509,
   tongue: 0xff6f93,
 };
