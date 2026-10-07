@@ -17,7 +17,7 @@ export interface TableLayout {
   rollovers: SensorDef[];
   spinner: SensorDef;
   shooterExit: SensorDef;
-  kickback: SensorDef;
+  kickbacks: Record<Side, SensorDef>;
   ramp: Ramp;
 }
 
@@ -30,6 +30,8 @@ export interface Ramp {
 }
 
 export type Point = [number, number];
+
+export type Side = "left" | "right";
 
 const mirrorX = (x: number) => PLAYFIELD_WIDTH - x;
 
@@ -57,7 +59,8 @@ export const createLayout = (): TableLayout => ({
     ...polyline("outer", [[0, -5], ...arc(25, 75, 25, Math.PI, 0, 28), [50, -5]]),
     ...polyline("shooter-wall", [[46, -5], [46, 80]]),
     { id: "shooter-gate", ax: 46, ay: 80, bx: 50, by: 83.5, kind: "wall", oneWay: true },
-    { id: "kickback-guide", ax: 4.5, ay: 42, bx: 0, by: 34, kind: "wall", oneWay: true },
+    { id: "kickback-guide-l", ax: 4.5, ay: 42, bx: 0, by: 34, kind: "wall", oneWay: true },
+    { id: "kickback-guide-r", ax: 46, ay: 50, bx: 40, by: 57, kind: "wall", oneWay: true },
     ...polyline("inlane-l", leftInlane),
     ...polyline("inlane-r", mirrored(leftInlane)),
     ...polyline("sling-back-l", leftSlingBack),
@@ -100,7 +103,10 @@ export const createLayout = (): TableLayout => ({
   rollovers: [15, 21, 27].map((x, i) => ({ id: `rollover-${i}`, ax: x, ay: 89, bx: x + 6, by: 89 })),
   spinner: { id: "spinner", ax: 29, ay: 78, bx: 35, by: 78 },
   shooterExit: { id: "shooter-exit", ax: 46, ay: 78, bx: 50, by: 78 },
-  kickback: { id: "kickback", ax: 0, ay: 10, bx: 4, by: 10 },
+  kickbacks: {
+    left: { id: "kickback-left", ax: 0, ay: 10, bx: 4, by: 10 },
+    right: { id: "kickback-right", ax: 42, ay: 10, bx: 46, by: 10 },
+  },
   ramp: createRamp(),
 });
 
