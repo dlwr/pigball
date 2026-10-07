@@ -33,6 +33,24 @@ const drain = (game: Game) => {
   game.step(DT);
 };
 
+const shootRamp = (game: Game, speed: number) => {
+    const [[x0, y0], [x1, y1]] = game.layout.ramp.path;
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const [tx, ty] = [(x1 - x0) / len, (y1 - y0) / len];
+    place(game, x0 - tx * 3, y0 - ty * 3, tx * speed, ty * speed);
+  };
+
+const completeRamps = (game: Game, times: number) => {
+  for (let i = 0; i < times; i++) {
+    shootRamp(game, 280);
+    let completed = false;
+    for (let t = 0; t < 3 && !completed; t += DT) {
+      game.step(DT);
+      completed = game.drainEvents().some((e) => e.kind === "ramp");
+    }
+  }
+};
+
 describe("Game", () => {
   it("3ボールで、ボールがシューターレーンに置かれた状態で始まる", () => {
     const game = newGame();
@@ -334,13 +352,6 @@ describe("Game", () => {
   });
 
   describe("ランプ", () => {
-    const shootRamp = (game: Game, speed: number) => {
-      const [[x0, y0], [x1, y1]] = game.layout.ramp.path;
-      const len = Math.hypot(x1 - x0, y1 - y0);
-      const [tx, ty] = [(x1 - x0) / len, (y1 - y0) / len];
-      place(game, x0 - tx * 3, y0 - ty * 3, tx * speed, ty * speed);
-    };
-
     const runCollecting = (game: Game, seconds: number) => {
       const events: GameEvent[] = [];
       const positions: [number, number][] = [];
@@ -391,6 +402,44 @@ describe("Game", () => {
       runCollecting(game, 1.6);
       const gained = game.score - first;
       expect(gained >= 5000 && gained < 7500).toBe(true);
+    });
+  });
+
+  describe("エクストラボール", () => {
+    it("1ゲームでランプを5回通すと獲得する", () => {
+      const game = newGame();
+      completeRamps(game, 5);
+      expect(game.extraBalls).toBe(1);
+    });
+
+    it("獲得できるのは1ゲームに1回だけ", () => {
+      const game = newGame();
+      completeRamps(game, 10);
+      expect(game.extraBalls).toBe(1);
+    });
+
+    it("持っていればドレインしてもボール数が減らない", () => {
+      const game = newGame();
+      completeRamps(game, 5);
+      drain(game);
+      expect([game.ballsLeft, game.extraBalls]).toEqual([3, 0]);
+    });
+
+    it("使ったあとのドレインではボール数が減る", () => {
+      const game = newGame();
+      completeRamps(game, 5);
+      drain(game);
+      drain(game);
+      expect(game.ballsLeft).toBe(2);
+    });
+
+    it("リスタートすると再び獲得できる", () => {
+      const game = newGame();
+      completeRamps(game, 5);
+      drain(game);
+      game.restart();
+      completeRamps(game, 5);
+      expect(game.extraBalls).toBe(1);
     });
   });
 

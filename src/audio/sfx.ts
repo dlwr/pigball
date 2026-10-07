@@ -84,6 +84,10 @@ export class Sfx {
         this.burst(500, 0.2, 0.3 + event.speed * 0.4, 0.8);
         this.tone("sine", 80, 40, 0.18, 0.4);
         break;
+      case "extraBall":
+        this.arpeggio([523, 659, 784, 1047, 1319, 1568], 0.07, "square", 0.25);
+        break;
+      case "shootAgain":
       case "save":
         this.arpeggio([392, 523, 659], 0.07, "triangle", 0.3);
         break;

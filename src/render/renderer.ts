@@ -140,6 +140,10 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 60, 60, new THREE.Color(PALETTE.laneOn));
         this.shake.add(0.35);
         break;
+      case "extraBall":
+        this.sparks.burst(event.x, event.y, 80, 70, new THREE.Color(PALETTE.ramp));
+        this.shake.add(0.4);
+        break;
       case "skill":
         this.sparks.burst(event.x, event.y, 80, 70, new THREE.Color(PALETTE.laneOn));
         this.shake.add(0.4);
@@ -257,8 +261,8 @@ export class TableRenderer {
     this.spinner.rotation.x = game.spinnerAngle;
     const plunger = game.world.plunger;
     if (plunger) this.plunger.position.y = plunger.y - 2.5;
-    const blink = game.ballSaveActive ? (Math.sin(this.time * 12) > 0 ? 2.5 : 0.2) : 0.05;
-    this.saveLight.emissiveIntensity = blink;
+    const blink = Math.sin(this.time * 12) > 0 ? 2.5 : 0.2;
+    this.saveLight.emissiveIntensity = game.ballSaveActive ? blink : game.extraBalls > 0 ? 1.6 : 0.05;
   }
 
   private addLights(): void {

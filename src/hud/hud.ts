@@ -43,6 +43,8 @@ export class Hud {
     else if (event.kind === "bank") this.showToast("TARGET BANK");
     else if (event.kind === "skill") this.showToast("SKILL SHOT");
     else if (event.kind === "save") this.showToast("BALL SAVED");
+    else if (event.kind === "extraBall") this.showToast("EXTRA BALL");
+    else if (event.kind === "shootAgain") this.showToast("SHOOT AGAIN");
   }
 
   private showToast(text: string): void {
