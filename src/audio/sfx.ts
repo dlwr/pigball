@@ -22,6 +22,11 @@ export class Sfx {
     if (this.ctx.state === "suspended") void this.ctx.resume();
   }
 
+  get output(): { ctx: AudioContext; destination: AudioNode; noise: AudioBuffer } | null {
+    const { ctx, master, noise } = this;
+    return ctx && master && noise ? { ctx, destination: master, noise } : null;
+  }
+
   suspend(): void {
     if (this.ctx?.state === "running") void this.ctx.suspend();
   }
