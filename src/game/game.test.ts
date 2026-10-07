@@ -114,6 +114,19 @@ describe("Game", () => {
       expect(ball(game).x).toBeLessThan(46);
     });
 
+    it("重力が重くてもフルパワーで打ち出したボールは台の上まで届く", () => {
+      const params = createParams();
+      params.gravity = 200;
+      const game = new Game(params, memoryStorage());
+      launch(game);
+      let highest = 0;
+      for (let t = 0; t < 1.5; t += DT) {
+        game.step(DT);
+        highest = Math.max(highest, ball(game).y);
+      }
+      expect(highest).toBeGreaterThan(95);
+    });
+
     it("フリッパーを触らなければボールはどこにも引っかからずドレインする", () => {
       const game = newGame();
       launch(game);
