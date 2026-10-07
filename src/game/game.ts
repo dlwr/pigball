@@ -43,7 +43,8 @@ export type GameEventKind =
   | "tilt"
   | "over"
   | "stageClear"
-  | "fever";
+  | "fever"
+  | "charm";
 
 export interface GameEvent {
   kind: GameEventKind;
@@ -109,7 +110,7 @@ export interface Modifier {
   start?(game: Game): void;
   score?(kind: ScoreKind, points: number, game: Game): number;
   rampWorth?(game: Game): number;
-  event?(kind: GameEventKind, game: Game): void;
+  event?(kind: GameEventKind, game: Game): boolean | void;
 }
 
 export interface GameRules {
@@ -279,7 +280,13 @@ export class Game {
   }
 
   private award(kind: ScoreKind, points: number): void {
-    const base = this.rules.modifiers.reduce((p, m) => (m.score ? m.score(kind, p, this) : p), points);
+    let base = points;
+    for (const modifier of this.rules.modifiers) {
+      if (!modifier.score) continue;
+      const next = modifier.score(kind, base, this);
+      if (next !== base && base !== 0) this.emit("charm", 23, 50, next / base, modifier.id);
+      base = next;
+    }
     this.score += base * this.multiplier * (this.inFever ? FEVER_MULTIPLIER : 1);
   }
 
@@ -701,6 +708,9 @@ export class Game {
 
   private emit(kind: GameEventKind, x: number, y: number, speed: number, id?: string): void {
     this.events.push({ kind, id, x, y, speed });
-    for (const modifier of this.rules.modifiers) modifier.event?.(kind, this);
+    if (kind === "charm") return;
+    for (const modifier of this.rules.modifiers) {
+      if (modifier.event?.(kind, this)) this.events.push({ kind: "charm", id: modifier.id, x, y, speed: 1 });
+    }
   }
 }

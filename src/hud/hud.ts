@@ -1,4 +1,5 @@
 import { type Game, type GameEvent, RAMPS_FOR_MULTIBALL } from "../game/game";
+import { CHARMS } from "../run/charms";
 import { type Run, STAGES } from "../run/run";
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
@@ -15,6 +16,8 @@ export class Hud {
   private readonly run: HTMLElement;
   private readonly goalBar: HTMLElement;
   private currentRun: Run | null = null;
+  private readonly charms: HTMLElement;
+  private readonly lastFired = new Map<string, number>();
   private toastTime = 0;
   private readonly toastQueue: string[] = [];
   private shownScore = 0;
@@ -33,6 +36,7 @@ export class Hud {
         </div>
         <div class="hud-run" hidden></div>
         <div class="hud-goal-bar" hidden><div></div></div>
+        <div class="hud-charms"></div>
       </div>
       <div class="hud-message"></div>
       <div class="hud-result">
@@ -53,6 +57,7 @@ export class Hud {
     this.result = this.root.querySelector(".hud-result")!;
     this.run = this.root.querySelector(".hud-run")!;
     this.goalBar = this.root.querySelector(".hud-goal-bar")!;
+    this.charms = this.root.querySelector(".hud-charms")!;
   }
 
   setRun(run: Run | null): void {
@@ -62,9 +67,39 @@ export class Hud {
     this.run.hidden = !run;
     this.goalBar.hidden = !run;
     this.high.hidden = !!run;
+    this.charms.replaceChildren();
+    if (!run) return;
+    const entries: [string, string, boolean][] = run.charms.map((id) => [id, CHARMS[id].name, false]);
+    if (run.curse) entries.push([run.curse.id, run.curse.name, true]);
+    for (const [id, name, curse] of entries) {
+      const item = document.createElement("span");
+      item.className = curse ? "hud-charm curse" : "hud-charm";
+      item.dataset.id = id;
+      item.textContent = name;
+      const pop = document.createElement("b");
+      item.appendChild(pop);
+      this.charms.appendChild(item);
+    }
+  }
+
+  private fireCharm(id: string, ratio: number): void {
+    const now = performance.now();
+    if (now - (this.lastFired.get(id) ?? 0) < 120) return;
+    this.lastFired.set(id, now);
+    const item = this.charms.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
+    if (!item) return;
+    const pop = item.querySelector("b")!;
+    pop.textContent = ratio === 1 ? "!" : ratio > 1 ? `×${+ratio.toFixed(1)}` : ratio === 0 ? "×0" : `×${+ratio.toFixed(2)}`;
+    item.classList.remove("fire");
+    void item.offsetWidth;
+    item.classList.add("fire");
   }
 
   onEvent(event: GameEvent, game: Game): void {
+    if (event.kind === "charm" && event.id) {
+      this.fireCharm(event.id, event.speed);
+      return;
+    }
     if (event.kind === "ramp") this.showToast(this.rampText(event.speed, game));
     else if (event.kind === "lanes") this.showToast(`MULTIPLIER ×${game.multiplier}`);
     else if (event.kind === "bank") this.showToast("TARGET BANK");
