@@ -33,6 +33,14 @@ describe("World", () => {
       expect(ball.y).toBeCloseTo(ball.r, 1);
     });
 
+    it("尖った壁の端に少しずれて乗ったボールは止まらずに転がり落ちる", () => {
+      const world = new World(createParams());
+      world.addSegment({ id: "post", ax: 25, ay: 0, bx: 25, by: 20 });
+      const ball = world.spawnBall(25.15, 20 + 1.36);
+      run(world, 3);
+      expect(ball.y).toBeLessThan(15);
+    });
+
     it("最高速のボールでも薄い壁をすり抜けない", () => {
       const params = createParams();
       params.gravity = 0;

@@ -111,6 +111,9 @@ export interface WorldSnapshot {
 const CONTACT_EVENT_SPEED = 4;
 const BUMPER_RECHARGE_SECONDS = 0.12;
 const BALL_RESTITUTION = 0.9;
+const ROLLING_SLOWDOWN = 2 / 7;
+const BALANCED_ON_TIP = 0.9995;
+const TIP_OFF_SPEED = 0.05;
 
 export class World {
   readonly balls: Ball[] = [];
@@ -121,6 +124,7 @@ export class World {
   readonly layerGates: LayerGateDef[] = [];
   plunger: Plunger | null = null;
   private events: PhysicsEvent[] = [];
+  private stepDt = 0;
 
   constructor(readonly params: PhysicsParams) {}
 
@@ -199,6 +203,7 @@ export class World {
   }
 
   step(dt: number): void {
+    this.stepDt = dt;
     for (const bumper of this.bumpers) bumper.recharge = Math.max(0, bumper.recharge - dt);
     for (const flipper of this.flippers) this.stepFlipper(flipper, dt);
     if (this.plunger) this.stepPlunger(this.plunger, dt);
@@ -306,6 +311,7 @@ export class World {
       if (ball.vx * fx + ball.vy * fy > 0) return;
     }
     const impact = this.resolve(ball, nx, ny, ball.r - hit.dist, 0, 0, this.params.wallRestitution);
+    if (ny > BALANCED_ON_TIP) this.tipOffEndpoint(ball, seg, hit.cx, hit.cy);
     if (seg.kind === "sling" && impact >= this.params.slingMinImpact) {
       kick(ball, nx, ny, this.params.slingKick);
     }
@@ -364,17 +370,32 @@ export class World {
     const rvy = ball.vy - svy;
     const vn = rvx * nx + rvy * ny;
     if (vn >= 0) return 0;
-    const e = -vn < this.params.restingSpeed ? 0 : restitution;
+    const resting = -vn < this.params.restingSpeed;
+    const e = resting ? 0 : restitution;
     const dvn = -(1 + e) * vn;
     ball.vx += dvn * nx;
     ball.vy += dvn * ny;
     const tx = -ny;
     const ty = nx;
+    if (resting) {
+      const gravityAlong = -this.params.gravity * this.stepDt * ty;
+      ball.vx -= tx * gravityAlong * ROLLING_SLOWDOWN;
+      ball.vy -= ty * gravityAlong * ROLLING_SLOWDOWN;
+      return -vn;
+    }
     const vt = rvx * tx + rvy * ty;
     const dvt = Math.sign(vt) * Math.min(Math.abs(vt), this.params.friction * dvn);
     ball.vx -= dvt * tx;
     ball.vy -= dvt * ty;
     return -vn;
+  }
+
+  private tipOffEndpoint(ball: Ball, seg: Segment, cx: number, cy: number): void {
+    const atA = cx === seg.ax && cy === seg.ay;
+    const atB = cx === seg.bx && cy === seg.by;
+    if (!atA && !atB) return;
+    const away = atA ? seg.ax - seg.bx : seg.bx - seg.ax;
+    ball.vx += (Math.sign(away) || 1) * TIP_OFF_SPEED;
   }
 
   private emitContact(id: string, speed: number, x: number, y: number, always: boolean): void {
