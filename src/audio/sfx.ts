@@ -91,6 +91,9 @@ export class Sfx {
       case "save":
         this.arpeggio([392, 523, 659], 0.07, "triangle", 0.3);
         break;
+      case "bonus":
+        this.arpeggio([330, 392, 494, 587], 0.09, "triangle", 0.2);
+        break;
       case "drain":
         this.tone("sawtooth", 300, 50, 0.6, 0.3);
         break;
