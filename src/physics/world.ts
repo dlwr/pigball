@@ -39,6 +39,10 @@ export interface BumperDef {
   kick: number;
 }
 
+export interface Bumper extends BumperDef {
+  recharge: number;
+}
+
 export interface FlipperDef {
   id: string;
   x: number;
@@ -98,12 +102,13 @@ export type PhysicsEvent =
   | { type: "gate"; id: string; layer: number; speed: number; x: number; y: number };
 
 const CONTACT_EVENT_SPEED = 4;
+const BUMPER_RECHARGE_SECONDS = 0.12;
 const BALL_RESTITUTION = 0.9;
 
 export class World {
   readonly balls: Ball[] = [];
   readonly segments: Segment[] = [];
-  readonly bumpers: BumperDef[] = [];
+  readonly bumpers: Bumper[] = [];
   readonly flippers: Flipper[] = [];
   readonly sensors: SensorDef[] = [];
   readonly layerGates: LayerGateDef[] = [];
@@ -129,9 +134,10 @@ export class World {
     return seg;
   }
 
-  addBumper(def: BumperDef): BumperDef {
-    this.bumpers.push(def);
-    return def;
+  addBumper(def: BumperDef): Bumper {
+    const bumper = { ...def, recharge: 0 };
+    this.bumpers.push(bumper);
+    return bumper;
   }
 
   addFlipper(def: FlipperDef): Flipper {
@@ -169,6 +175,7 @@ export class World {
   }
 
   step(dt: number): void {
+    for (const bumper of this.bumpers) bumper.recharge = Math.max(0, bumper.recharge - dt);
     for (const flipper of this.flippers) this.stepFlipper(flipper, dt);
     if (this.plunger) this.stepPlunger(this.plunger, dt);
     for (const ball of this.balls) this.stepBall(ball, dt);
@@ -281,7 +288,7 @@ export class World {
     this.emitContact(seg.id, impact, hit.cx, hit.cy, seg.kind !== "wall");
   }
 
-  private collideBumper(ball: Ball, bumper: BumperDef): void {
+  private collideBumper(ball: Ball, bumper: Bumper): void {
     const dx = ball.x - bumper.x;
     const dy = ball.y - bumper.y;
     const dist = Math.hypot(dx, dy);
@@ -290,6 +297,8 @@ export class World {
     const nx = dx / dist;
     const ny = dy / dist;
     const impact = this.resolve(ball, nx, ny, minDist - dist, 0, 0, this.params.wallRestitution);
+    if (bumper.recharge > 0 || impact === 0) return;
+    bumper.recharge = BUMPER_RECHARGE_SECONDS;
     kick(ball, nx, ny, bumper.kick);
     this.emitContact(bumper.id, impact, bumper.x + nx * bumper.r, bumper.y + ny * bumper.r, true);
   }

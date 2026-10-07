@@ -80,6 +80,36 @@ describe("World", () => {
       expect(ball.vy).toBeGreaterThanOrEqual(99);
     });
 
+    const hitTwice = (gap: number) => {
+      const params = createParams();
+      params.gravity = 0;
+      const world = new World(params);
+      world.addBumper({ id: "pop", x: 25, y: 50, r: 2.5, kick: 100 });
+      const ball = world.spawnBall(25, 54);
+      ball.vy = -20;
+      run(world, 0.02);
+      run(world, gap);
+      world.drainEvents();
+      Object.assign(ball, { x: 25, y: 54, prevX: 25, prevY: 54, vx: 0, vy: -20 });
+      run(world, 0.02);
+      return { ball, events: world.drainEvents() };
+    };
+
+    it("弾いた直後にもう一度当たってもキックしない", () => {
+      const { ball } = hitTwice(0);
+      expect(ball.vy).toBeLessThan(50);
+    });
+
+    it("弾いた直後にもう一度当たっても接触イベントを出さない", () => {
+      const { events } = hitTwice(0);
+      expect(events.filter((e) => e.id === "pop")).toEqual([]);
+    });
+
+    it("少し間をおけば再びキックする", () => {
+      const { ball } = hitTwice(0.2);
+      expect(ball.vy).toBeGreaterThanOrEqual(99);
+    });
+
     it("接触イベントを出す", () => {
       const params = createParams();
       params.gravity = 0;
