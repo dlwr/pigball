@@ -177,6 +177,12 @@ describe("ラン", () => {
       expect([run.shop.offers.join() !== before.join(), run.shop.rerollCost]).toEqual([true, cost + 1]);
     });
 
+    it("たまにレアなおまじないが並ぶ", () => {
+      const offers = Array.from({ length: 60 }, (_, seed) => richRun(seed).shop.offers).flat();
+      const rares = offers.filter((id) => CHARMS[id].rare).length;
+      expect(rares > 0 && rares < offers.length / 2).toBe(true);
+    });
+
     it("同じシードなら同じ品揃えになる", () => {
       expect(richRun(42).shop.offers).toEqual(richRun(42).shop.offers);
     });
