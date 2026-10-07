@@ -105,7 +105,7 @@ export class RampView {
     const material = new THREE.MeshStandardMaterial({
       color: PALETTE.ramp,
       transparent: true,
-      opacity: 0.11,
+      opacity: 0.22,
       roughness: 0.1,
       metalness: 0,
       side: THREE.DoubleSide,
@@ -135,7 +135,7 @@ export class RampView {
 
   private createSupports(): THREE.Group {
     const group = new THREE.Group();
-    const material = new THREE.MeshStandardMaterial({ color: PALETTE.wall, metalness: 0.8, roughness: 0.35 });
+    const material = new THREE.MeshStandardMaterial({ color: PALETTE.wall, metalness: 0, roughness: 0.5 });
     const geometry = new THREE.CylinderGeometry(0.25, 0.25, 1, 10);
     const { path, width } = this.ramp;
     for (let s = SUPPORT_EVERY; s < this.total - 4; s += SUPPORT_EVERY) {

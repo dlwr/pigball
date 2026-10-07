@@ -149,3 +149,83 @@ export class GooglyEye {
     this.pupil.position.set(this.offset.x, this.offset.y, this.size * 0.5);
   }
 }
+
+export interface Mouth {
+  object: THREE.Object3D;
+  open(value: number): void;
+}
+
+export const createMouth = (x: number, y: number, width: number): Mouth => {
+  const group = new THREE.Group();
+  const cavity = new THREE.Mesh(new THREE.CircleGeometry(1, 32), standard(PALETTE.mouth, 0.9));
+  cavity.position.z = 0.03;
+  const tongue = new THREE.Mesh(new THREE.CircleGeometry(1, 24), standard(PALETTE.tongue, 0.5, PALETTE.tongue, 0.2));
+  tongue.position.set(0, -0.35, 0.05);
+  tongue.scale.set(0.45, 0.4, 1);
+  const lips = shadowed(new THREE.Mesh(new THREE.TorusGeometry(1, 0.16, 10, 40), standard(PALETTE.pigLips, 0.4, PALETTE.pigLips, 0.2)));
+  lips.position.z = 0.1;
+  const inner = new THREE.Group();
+  inner.add(cavity, tongue, lips);
+  group.add(inner);
+  group.position.set(x, y, 0);
+  group.scale.set(width / 2, width / 2, 1);
+  return {
+    object: group,
+    open(value) {
+      inner.scale.set(1 + value * 0.1, 0.32 + value * 0.6, 1);
+    },
+  };
+};
+
+export const createPlayfieldSkin = (width: number, height: number): THREE.CanvasTexture => {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 1024;
+  const ctx = canvas.getContext("2d")!;
+  const gradient = ctx.createRadialGradient(256, 560, 40, 256, 560, 720);
+  gradient.addColorStop(0, "#3d1424");
+  gradient.addColorStop(0.6, "#260a16");
+  gradient.addColorStop(1, "#10040a");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 512, 1024);
+  let seed = 7;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  for (let i = 0; i < 2600; i++) {
+    const px = random() * 512;
+    const py = random() * 1024;
+    ctx.fillStyle = random() < 0.7 ? "rgba(20,4,10,0.35)" : "rgba(255,170,195,0.08)";
+    ctx.beginPath();
+    ctx.arc(px, py, 0.8 + random() * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.lineCap = "round";
+  for (let i = 0; i < 260; i++) {
+    const px = random() * 512;
+    const py = random() * 1024;
+    const angle = -Math.PI / 2 + (random() - 0.5) * 1.2;
+    const length = 6 + random() * 10;
+    ctx.strokeStyle = `rgba(255,205,220,${0.08 + random() * 0.1})`;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.quadraticCurveTo(px + Math.cos(angle) * length * 0.5 + 2, py + Math.sin(angle) * length * 0.5, px + Math.cos(angle) * length, py + Math.sin(angle) * length);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(15,3,8,0.25)";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 14; i++) {
+    const py = 80 + random() * 880;
+    const px = random() * 380;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.bezierCurveTo(px + 30, py - 10, px + 70, py + 12, px + 110 + random() * 40, py);
+    ctx.stroke();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.repeat.set(width / 54, height / 110);
+  return texture;
+};

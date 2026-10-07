@@ -117,7 +117,8 @@ export class Sfx {
         this.arpeggio([330, 392, 494, 587], 0.09, "triangle", 0.2);
         break;
       case "drain":
-        this.tone("sawtooth", 300, 50, 0.6, 0.3);
+        this.tone("sine", 160, 45, 0.35, 0.7, 0.45);
+        this.burst(400, 0.12, 0.4, 3);
         break;
       case "tilt":
         this.tone("sawtooth", 62, 58, 0.7, 0.4);

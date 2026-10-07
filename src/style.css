@@ -1,9 +1,9 @@
 :root {
-  --bg: #07090d;
-  --text: #eef2f7;
-  --muted: #8a94a6;
-  --accent: #ff5a1f;
-  --cool: #5ef0ff;
+  --bg: #0d0408;
+  --text: #fff1f5;
+  --muted: #b98a9a;
+  --accent: #ffe066;
+  --cool: #ff8fb5;
 }
 
 html,
@@ -47,7 +47,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  text-shadow: 0 0 18px rgba(255, 90, 31, 0.45);
+  text-shadow: 0 0 18px rgba(255, 120, 165, 0.45);
 }
 
 .hud-score {
@@ -103,7 +103,7 @@ body {
   box-sizing: border-box;
   padding: 24px 22px 20px;
   transform: translate(-50%, -46%);
-  background: rgba(7, 9, 13, 0.94);
+  background: rgba(20, 5, 11, 0.94);
   border-top: 2px solid var(--accent);
   text-align: center;
   opacity: 0;
@@ -132,7 +132,7 @@ body {
   font-weight: 900;
   letter-spacing: 0.12em;
   color: var(--accent);
-  text-shadow: 0 0 16px rgba(255, 90, 31, 0.6);
+  text-shadow: 0 0 16px rgba(255, 224, 102, 0.6);
   animation: record-blink 0.9s steps(2, jump-none) infinite;
 }
 
@@ -188,7 +188,7 @@ body {
   font-weight: 900;
   letter-spacing: 0.06em;
   color: var(--cool);
-  text-shadow: 0 0 24px rgba(94, 240, 255, 0.7);
+  text-shadow: 0 0 24px rgba(255, 120, 165, 0.75);
   opacity: 0;
   transform: scale(0.8);
   transition: opacity 0.25s, transform 0.25s;
