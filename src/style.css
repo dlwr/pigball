@@ -81,6 +81,13 @@ body {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
 }
 
+.hud[data-state="ready"] .hud-message {
+  top: auto;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  font-size: clamp(12px, 1.9vh, 15px);
+  color: var(--muted);
+}
+
 .hud[data-state="tilt"] .hud-message {
   color: var(--accent);
   font-size: clamp(32px, 8vh, 64px);

@@ -140,6 +140,10 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 60, 60, new THREE.Color(PALETTE.laneOn));
         this.shake.add(0.35);
         break;
+      case "skill":
+        this.sparks.burst(event.x, event.y, 80, 70, new THREE.Color(PALETTE.laneOn));
+        this.shake.add(0.4);
+        break;
       case "rollover":
         this.sparks.burst(event.x, event.y, 8, 20, new THREE.Color(PALETTE.laneOn));
         break;
@@ -244,8 +248,9 @@ export class TableRenderer {
       const goal = game.isTargetDown(i) ? -1.6 : 0;
       mesh.position.z += (goal - mesh.position.z) * Math.min(1, dt * 25);
     });
+    const skillChase = game.skillShotLit && game.state === "ready" ? Math.floor(this.time * 8) % this.laneMaterials.length : -1;
     this.laneMaterials.forEach((material, i) => {
-      const lit = game.litLanes[i];
+      const lit = game.litLanes[i] || i === skillChase;
       material.emissive.setHex(lit ? PALETTE.laneOn : PALETTE.laneOff);
       material.emissiveIntensity = lit ? 2.2 : 0.4;
     });
