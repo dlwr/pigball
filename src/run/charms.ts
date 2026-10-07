@@ -5,6 +5,7 @@ export interface CharmDef {
   name: string;
   description: string;
   price: number;
+  rare?: boolean;
   effect: Omit<Modifier, "id">;
 }
 
@@ -80,7 +81,34 @@ const defs: CharmDef[] = [
       },
     },
   },
+  { id: "golden-snout", name: "金の鼻", description: "全部の点が1.5倍", price: 9, rare: true, effect: { score: (_kind, points) => points * 1.5 } },
+  {
+    id: "pig-horde",
+    name: "豚の大群",
+    description: "マルチボール中は全部の点が2倍",
+    price: 8,
+    rare: true,
+    effect: { score: (_kind, points, game) => (game.inMultiball ? points * 2 : points) },
+  },
+  {
+    id: "fever-body",
+    name: "フィーバー体質",
+    description: "フィーバー中は全部の点がさらに2倍",
+    price: 8,
+    rare: true,
+    effect: { score: (_kind, points, game) => (game.inFever ? points * 2 : points) },
+  },
+  {
+    id: "double-down",
+    name: "倍々ゲーム",
+    description: "倍率がもう一度掛かる",
+    price: 10,
+    rare: true,
+    effect: { score: (_kind, points, game) => points * game.multiplier },
+  },
 ];
 
 export const CHARMS: Record<string, CharmDef> = Object.fromEntries(defs.map((def) => [def.id, def]));
 export const CHARM_IDS = defs.map((def) => def.id);
+export const COMMON_CHARM_IDS = defs.filter((def) => !def.rare).map((def) => def.id);
+export const RARE_CHARM_IDS = defs.filter((def) => def.rare).map((def) => def.id);

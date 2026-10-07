@@ -1,5 +1,5 @@
 import type { GameRules, Modifier } from "../game/game";
-import { CHARMS, CHARM_IDS } from "./charms";
+import { CHARMS, COMMON_CHARM_IDS, RARE_CHARM_IDS } from "./charms";
 import { CURSES, CURSE_IDS, type CurseDef } from "./curses";
 import { Rng } from "./rng";
 
@@ -22,6 +22,7 @@ export const STAGES: StageDef[] = [
 export const BALLS_PER_STAGE = 2;
 export const MAX_CHARMS = 5;
 const SHOP_SIZE = 3;
+const RARE_CHANCE = 0.2;
 const BASE_REWARD = 3;
 const REWARD_PER_SPARE_BALL = 2;
 const OVERKILL_STEP = 0.1;
@@ -163,10 +164,14 @@ export class Run {
   }
 
   private rollOffers(): string[] {
-    return this.rng.sample(
-      CHARM_IDS.filter((id) => !this.charms.includes(id)),
-      SHOP_SIZE,
-    );
+    const offers: string[] = [];
+    const available = (ids: string[]) => ids.filter((id) => !this.charms.includes(id) && !offers.includes(id));
+    for (let i = 0; i < SHOP_SIZE; i++) {
+      const rares = available(RARE_CHARM_IDS);
+      const pool = this.rng.next() < RARE_CHANCE && rares.length > 0 ? rares : available(COMMON_CHARM_IDS);
+      if (pool.length > 0) offers.push(this.rng.pick(pool));
+    }
+    return offers;
   }
 
   private rollCurse(): string | null {

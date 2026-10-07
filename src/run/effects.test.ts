@@ -64,3 +64,40 @@ describe("ギミック連携のおまじない", () => {
     expect(game.piggyHitsToBreak).toBe(3);
   });
 });
+
+describe("全体に掛かるレアなおまじない", () => {
+  const withCharm = (id: string) => new Game(createParams(), storage, { modifiers: [{ id, ...CHARMS[id].effect }] });
+
+  it("金の鼻: 全部の点が1.5倍", () => {
+    const game = withCharm("golden-snout");
+    game.addScore(100);
+    expect(game.score).toBe(150);
+  });
+
+  it("豚の大群: マルチボール中は全部の点が2倍", () => {
+    const game = withCharm("pig-horde");
+    game.inMultiball = true;
+    game.addScore(100);
+    expect(game.score).toBe(200);
+  });
+
+  it("豚の大群: マルチボールでなければそのまま", () => {
+    const game = withCharm("pig-horde");
+    game.addScore(100);
+    expect(game.score).toBe(100);
+  });
+
+  it("フィーバー体質: フィーバー中は全部の点がさらに2倍", () => {
+    const game = withCharm("fever-body");
+    game.feverTime = 5;
+    game.addScore(100);
+    expect(game.score).toBe(400);
+  });
+
+  it("倍々ゲーム: 倍率がもう一度掛かる", () => {
+    const game = withCharm("double-down");
+    game.multiplier = 3;
+    game.addScore(100);
+    expect(game.score).toBe(900);
+  });
+});

@@ -82,8 +82,8 @@ export class Screens {
       .map((id, i) => {
         const charm = CHARMS[id];
         const disabled = full || run.truffles < charm.price;
-        return `<li class="shop-row">
-          <div><strong>${escape(charm.name)}</strong><span>${escape(charm.description)}</span></div>
+        return `<li class="shop-row${charm.rare ? " rare" : ""}">
+          <div><strong>${charm.rare ? "レア · " : ""}${escape(charm.name)}</strong><span>${escape(charm.description)}</span></div>
           <button data-buy="${i}" ${disabled ? "disabled" : ""}>${charm.price} で買う</button>
         </li>`;
       })
