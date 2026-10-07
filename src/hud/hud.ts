@@ -10,6 +10,7 @@ export class Hud {
   private readonly multiplier: HTMLElement;
   private readonly message: HTMLElement;
   private readonly toast: HTMLElement;
+  private readonly result: HTMLElement;
   private toastTime = 0;
   private readonly toastQueue: string[] = [];
   private shownScore = 0;
@@ -28,6 +29,13 @@ export class Hud {
         </div>
       </div>
       <div class="hud-message"></div>
+      <div class="hud-result">
+        <div class="hud-result-title">GAME OVER</div>
+        <div class="hud-result-record">NEW HIGH SCORE</div>
+        <div class="hud-result-score"></div>
+        <dl class="hud-result-stats"></dl>
+        <div class="hud-result-hint"></div>
+      </div>
       <div class="hud-toast"></div>`;
     container.appendChild(this.root);
     this.score = this.root.querySelector(".hud-score")!;
@@ -36,6 +44,7 @@ export class Hud {
     this.multiplier = this.root.querySelector(".hud-mult")!;
     this.message = this.root.querySelector(".hud-message")!;
     this.toast = this.root.querySelector(".hud-toast")!;
+    this.result = this.root.querySelector(".hud-result")!;
   }
 
   onEvent(event: GameEvent, game: Game): void {
@@ -92,12 +101,27 @@ export class Hud {
     this.balls.textContent = `BALL ${Math.min(3, 4 - game.ballsLeft)}/3`;
     this.multiplier.textContent = game.multiplier > 1 ? `×${game.multiplier}` : "";
     this.message.textContent = this.messageFor(game);
-    this.root.dataset.state = game.tilted ? "tilt" : game.state;
+    this.root.dataset.state = game.state === "over" ? "over" : game.tilted ? "tilt" : game.state;
+    this.root.dataset.record = String(game.newHighScore);
+    if (game.state === "over") this.fillResult(game);
+  }
+
+  private fillResult(game: Game): void {
+    const { ramps, banks, jackpots, skillShots } = game.stats;
+    const rows: [string, number][] = [
+      ["RAMPS", ramps],
+      ["TARGET BANKS", banks],
+      ["JACKPOTS", jackpots],
+      ["SKILL SHOTS", skillShots],
+    ];
+    this.result.querySelector(".hud-result-score")!.textContent = game.score.toLocaleString("en-US");
+    this.result.querySelector(".hud-result-stats")!.innerHTML = rows.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("");
+    this.result.querySelector(".hud-result-hint")!.textContent = isTouch() ? "タップでもう一度" : "Space でもう一度";
   }
 
   private messageFor(game: Game): string {
+    if (game.state === "over") return "";
     if (game.tilted) return "TILT";
-    if (game.state === "over") return isTouch() ? "GAME OVER — タップでもう一度" : "GAME OVER — Space でもう一度";
     if (game.state === "ready") return isTouch() ? "下にスワイプして離すと発射" : "Space を長押しして離すと発射";
     return "";
   }
