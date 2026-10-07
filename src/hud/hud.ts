@@ -11,6 +11,7 @@ export class Hud {
   private readonly message: HTMLElement;
   private readonly toast: HTMLElement;
   private toastTime = 0;
+  private readonly toastQueue: string[] = [];
   private shownScore = 0;
   private lastText = "";
 
@@ -45,20 +46,31 @@ export class Hud {
     else if (event.kind === "save") this.showToast("BALL SAVED");
     else if (event.kind === "extraBall") this.showToast("EXTRA BALL");
     else if (event.kind === "shootAgain") this.showToast("SHOOT AGAIN");
+    else if (event.kind === "bonus") this.showToast(`BONUS ${event.speed.toLocaleString("en-US")}`);
   }
 
   private showToast(text: string): void {
+    this.toastQueue.push(text);
+    if (this.toastTime <= 0) this.showNextToast();
+  }
+
+  private showNextToast(): void {
+    const text = this.toastQueue.shift();
+    if (text === undefined) {
+      this.toast.classList.remove("show");
+      return;
+    }
     this.toast.textContent = text;
     this.toast.classList.remove("show");
     void this.toast.offsetWidth;
     this.toast.classList.add("show");
-    this.toastTime = 1.3;
+    this.toastTime = this.toastQueue.length > 0 ? 0.8 : 1.3;
   }
 
   update(game: Game, dt: number): void {
     if (this.toastTime > 0) {
       this.toastTime -= dt;
-      if (this.toastTime <= 0) this.toast.classList.remove("show");
+      if (this.toastTime <= 0) this.showNextToast();
     }
     const diff = game.score - this.shownScore;
     this.shownScore = diff > 0 ? Math.min(game.score, this.shownScore + Math.max(1, Math.ceil(diff * Math.min(1, dt * 12)))) : game.score;
