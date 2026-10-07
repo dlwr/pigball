@@ -9,7 +9,7 @@ import { Sparks, Shake, Trail } from "./effects";
 import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { Piglet } from "./piglet";
-import { GooglyEye, createCurlyTail, createGum, createLips, createSnout, createTooth } from "./pigparts";
+import { GooglyEye, type Mouth, createCurlyTail, createGum, createLips, createMouth, createPlayfieldSkin, createSnout, createTooth } from "./pigparts";
 
 const WALL_HEIGHT = 1.6;
 const WALL_THICKNESS = 0.5;
@@ -43,6 +43,9 @@ export class TableRenderer {
   private readonly glows = new Map<string, Glow>();
   private readonly targetMeshes: THREE.Mesh[] = [];
   private readonly eyes: GooglyEye[] = [];
+  private readonly mouth: Mouth;
+  private mouthOpen = 0;
+  private skin!: THREE.MeshStandardMaterial;
   private readonly lookTarget = new THREE.Vector2();
   private readonly laneMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly spinner: THREE.Mesh;
@@ -89,6 +92,8 @@ export class TableRenderer {
     [this.spinner, this.spinnerGlow] = this.addSpinner();
     this.plunger = this.addPlunger();
     this.saveLight = this.addSaveLight();
+    this.mouth = createMouth(TABLE_WIDTH / 2 - 2, 2, 6);
+    this.scene.add(this.mouth.object);
     this.kickbackLights = { left: this.addKickbackLight("left"), right: this.addKickbackLight("right") };
     for (const flipper of game.world.flippers) this.addFlipper(flipper);
     this.ramp = new RampView(game.layout.ramp);
@@ -195,6 +200,9 @@ export class TableRenderer {
         this.shake.add(0.1 + event.speed * 0.2);
         break;
       case "drain":
+        this.mouthOpen = 1;
+        this.shake.add(0.5);
+        break;
       case "tilt":
       case "over":
         this.shake.add(0.5);
@@ -308,6 +316,9 @@ export class TableRenderer {
     this.spinnerGlow.emissiveIntensity = 0.3 + Math.min(3, this.spinnerSpeed / 10);
     const plunger = game.world.plunger;
     if (plunger) this.plunger.position.y = plunger.y - 2.5;
+    this.skin.emissiveIntensity = 0.025 + 0.02 * Math.sin(this.time * 0.9);
+    this.mouthOpen *= Math.exp(-dt * 5);
+    this.mouth.open(this.mouthOpen > 0.6 ? 1 : this.mouthOpen * 1.6 * Math.abs(Math.cos(this.time * 18)));
     const blink = Math.sin(this.time * 12) > 0 ? 2.5 : 0.2;
     for (const side of ["left", "right"] as const) this.kickbackLights[side].emissiveIntensity = game.kickbacksLit[side] ? 2 : 0.05;
     this.saveLight.emissiveIntensity = game.ballSaveActive ? blink : game.extraBalls > 0 ? 1.6 : 0.05;
@@ -327,28 +338,16 @@ export class TableRenderer {
   }
 
   private addPlayfield(): void {
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 512;
-    const ctx = canvas.getContext("2d")!;
-    const gradient = ctx.createRadialGradient(128, 300, 20, 128, 300, 360);
-    gradient.addColorStop(0, "#141a28");
-    gradient.addColorStop(1, "#06080d");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 256, 512);
-    ctx.strokeStyle = "rgba(120,140,180,0.06)";
-    for (let y = 0; y < 512; y += 16) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(256, y);
-      ctx.stroke();
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(TABLE_WIDTH + 4, TABLE_HEIGHT + 10),
-      new THREE.MeshStandardMaterial({ map: texture, roughness: 0.55, metalness: 0.1 }),
-    );
+    const width = TABLE_WIDTH + 4;
+    const height = TABLE_HEIGHT + 10;
+    this.skin = new THREE.MeshStandardMaterial({
+      map: createPlayfieldSkin(width, height),
+      roughness: 0.6,
+      metalness: 0,
+      emissive: PALETTE.pigSkin,
+      emissiveIntensity: 0,
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, height), this.skin);
     plane.position.set(TABLE_WIDTH / 2, TABLE_HEIGHT / 2 - 3, 0);
     plane.receiveShadow = true;
     this.scene.add(plane);
@@ -358,8 +357,8 @@ export class TableRenderer {
     const length = Math.hypot(seg.bx - seg.ax, seg.by - seg.ay);
     const material = new THREE.MeshStandardMaterial({
       color,
-      metalness: 0.7,
-      roughness: 0.3,
+      metalness: 0.05,
+      roughness: 0.45,
       emissive: emissive ? color : 0x000000,
       emissiveIntensity: emissive,
     });
@@ -476,8 +475,8 @@ export class TableRenderer {
 
   private addSaveLight(): THREE.MeshStandardMaterial {
     const material = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.sling, emissiveIntensity: 0 });
-    const mesh = new THREE.Mesh(new THREE.CircleGeometry(1, 24), material);
-    mesh.position.set(23, 3, 0.02);
+    const mesh = new THREE.Mesh(new THREE.CircleGeometry(0.75, 24), material);
+    mesh.position.set(23, 6, 0.02);
     this.scene.add(mesh);
     return material;
   }
@@ -503,14 +502,16 @@ export class TableRenderer {
       new THREE.MeshStandardMaterial({ color: PALETTE.flipper, roughness: 0.35, metalness: 0.1 }),
     );
     body.castShadow = true;
-    const pivot = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.35, 0.35, 0.3, 16),
-      new THREE.MeshStandardMaterial({ color: PALETTE.flipperRubber, emissive: PALETTE.flipperRubber, emissiveIntensity: 0.6 }),
-    );
-    pivot.rotation.x = Math.PI / 2;
-    pivot.position.z = 1.55;
+    const hoofMaterial = new THREE.MeshStandardMaterial({ color: PALETTE.hoof, roughness: 0.3, metalness: 0 });
+    const hooves = [-1, 1].map((side) => {
+      const hoof = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), hoofMaterial);
+      hoof.scale.set(r2 * 1.5, r2 * 0.85, 0.85);
+      hoof.position.set(length - r2 * 0.2, side * r2 * 0.5, 0.75);
+      hoof.castShadow = true;
+      return hoof;
+    });
     const group = new THREE.Group();
-    group.add(body, pivot);
+    group.add(body, ...hooves);
     group.position.set(flipper.x, flipper.y, 0.1);
     this.scene.add(group);
     this.flipperMeshes.set(flipper, group);
