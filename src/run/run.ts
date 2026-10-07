@@ -23,6 +23,7 @@ export const BALLS_PER_STAGE = 2;
 export const MAX_CHARMS = 5;
 const SHOP_SIZE = 3;
 const RARE_CHANCE = 0.2;
+const CURSE_WARD = "pig-god";
 const BASE_REWARD = 3;
 const REWARD_PER_SPARE_BALL = 2;
 const OVERKILL_STEP = 0.1;
@@ -80,9 +81,13 @@ export class Run {
     return this.curseId ? CURSES[this.curseId] : null;
   }
 
+  get activeCurse(): CurseDef | null {
+    return this.charms.includes(CURSE_WARD) ? null : this.curse;
+  }
+
   stageRules(): Partial<GameRules> {
     const modifiers = this.charms.map((id) => toModifier(id, CHARMS[id].effect));
-    const { curse } = this;
+    const curse = this.activeCurse;
     if (curse) modifiers.push(toModifier(curse.id, curse.effect));
     return { balls: BALLS_PER_STAGE, target: this.stageDef.target, modifiers };
   }

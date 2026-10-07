@@ -107,6 +107,14 @@ describe("ラン", () => {
       expect(run.curse?.boss).toBe(true);
     });
 
+    it("豚の神様を持っていると呪いはルールに入らない", () => {
+      const run = new Run(1);
+      clearStage(run);
+      run.charms.push("pig-god");
+      run.nextStage();
+      expect(run.stageRules().modifiers?.map((m) => m.id)).not.toContain(run.curse?.id);
+    });
+
     it("呪いはステージのルールに入る", () => {
       const run = new Run(1);
       clearStage(run);
