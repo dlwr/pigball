@@ -616,6 +616,20 @@ describe("Game", () => {
       expect(dropIntoLeftOutlane(game)).toBeGreaterThan(40);
     });
 
+    it("打ち返されたボールはアウトレーンに戻ってこない", () => {
+      const game = newGame();
+      place(game, 2, 26, 0, -40);
+      let kicked = false;
+      let returned = false;
+      for (let t = 0; t < 1.5 && !returned; t += DT) {
+        game.step(DT);
+        kicked ||= game.drainEvents().some((e) => e.kind === "kickback");
+        const b = ball(game);
+        returned = kicked && !!b && b.vy < 0 && b.x < 4 && b.y < 30;
+      }
+      expect([kicked, returned]).toEqual([true, false]);
+    });
+
     it("一度使うと消える", () => {
       const game = newGame();
       dropIntoLeftOutlane(game);
