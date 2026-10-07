@@ -517,6 +517,11 @@ export class Game {
     this.emit("piggyBack", piggy.x, piggy.y, 1);
   }
 
+  addBall(): void {
+    if (this.pendingLaunches === 0) this.autoLaunchTime = AUTO_LAUNCH_INTERVAL;
+    this.pendingLaunches++;
+  }
+
   get holdingInNavel(): boolean {
     return this.navelBall !== null;
   }
