@@ -53,7 +53,7 @@ const handle = (event: GameEvent) => {
   sfx.play(event);
   renderer.onEvent(event);
   hud.onEvent(event, game);
-  const heavy = (event.kind === "bumper" && event.speed > 100) || (event.kind === "flipper" && event.speed > 220) || event.kind === "bank";
+  const heavy = (event.kind === "bumper" && event.speed > 100) || event.kind === "bank";
   if (heavy && hitStopCooldown <= 0) {
     hitStop = HIT_STOP_SECONDS;
     hitStopCooldown = HIT_STOP_COOLDOWN_SECONDS;
