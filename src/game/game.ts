@@ -96,7 +96,19 @@ export const MAX_SHOT_LEVEL = 5;
 
 export type Shot = "ramp" | "target" | "piggy" | "belly";
 
-export const SHOT_ORDER: Shot[] = ["ramp", "target", "piggy", "belly"];
+const SHOT_PAIRS: [Shot, Shot][] = [
+  ["target", "ramp"],
+  ["piggy", "belly"],
+];
+
+export const SHOTS: Shot[] = SHOT_PAIRS.flat();
+
+const firstLitShots = (): Shot[] => SHOT_PAIRS.map(([first]) => first);
+
+const partnerOf = (shot: Shot): Shot => {
+  const [a, b] = SHOT_PAIRS.find((pair) => pair.includes(shot))!;
+  return a === shot ? b : a;
+};
 
 const SHOT_POINTS: Record<Shot, number> = { ramp: 2000, target: 2000, piggy: 4000, belly: 4000 };
 
@@ -186,7 +198,7 @@ export class Game {
   rampsTowardExtraBall = 0;
   kickbacksLit: Record<Side, boolean> = { left: true, right: false };
   multiplier = 1;
-  litShots: Shot[] = SHOT_ORDER.slice(0, 2);
+  litShots: Shot[] = firstLitShots();
   shotLevel = 1;
   keepsShotLevel = false;
   litLanes = [false, false, false];
@@ -200,7 +212,6 @@ export class Game {
   private rampCombo = 0;
   private rampComboTime = 0;
   private spinsTowardRightKickback = 0;
-  private shotCursor = 2;
   private pendingLaunches = 0;
   private piggyRespawnTime = 0;
   private targetReached = false;
@@ -249,14 +260,6 @@ export class Game {
 
   get inFever(): boolean {
     return this.feverTime > 0;
-  }
-
-  get nextShot(): Shot {
-    for (let i = 0; i < SHOT_ORDER.length; i++) {
-      const shot = SHOT_ORDER[(this.shotCursor + i) % SHOT_ORDER.length];
-      if (!this.litShots.includes(shot)) return shot;
-    }
-    return SHOT_ORDER[this.shotCursor % SHOT_ORDER.length];
   }
 
   get ballSaveActive(): boolean {
@@ -330,8 +333,7 @@ export class Game {
     this.stats = emptyStats();
     this.newHighScore = false;
     this.inMultiball = false;
-    this.litShots = SHOT_ORDER.slice(0, 2);
-    this.shotCursor = 2;
+    this.litShots = firstLitShots();
     this.navelBall = null;
     this.navelCooldown = 0;
     this.piggyHits = 0;
@@ -586,15 +588,14 @@ export class Game {
     const level = this.shotLevel;
     this.shotLevel = Math.min(MAX_SHOT_LEVEL, this.shotLevel + 1);
     this.litShots = this.litShots.filter((s) => s !== shot);
-    this.lightShot();
+    const partner = partnerOf(shot);
+    if (!this.litShots.includes(partner)) this.litShots.push(partner);
     this.emit("shot", x, y, level, shot);
   }
 
   lightShot(): void {
-    if (this.litShots.length >= SHOT_ORDER.length) return;
-    const next = this.nextShot;
-    this.litShots = [...this.litShots, next];
-    this.shotCursor = SHOT_ORDER.indexOf(next) + 1;
+    const unlit = SHOTS.find((shot) => !this.litShots.includes(shot));
+    if (unlit) this.litShots.push(unlit);
   }
 
   private fireKickback(side: Side, ball: Ball): void {

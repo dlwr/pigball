@@ -166,7 +166,7 @@ describe("狙いのおまじない", () => {
     const { navel } = game.layout;
     placeBall(game, navel.x, navel.y + 3, 0, -20);
     for (let i = 0; i < 300; i++) game.step(DT);
-    expect(game.litShots).toEqual(["ramp", "target", "piggy"]);
+    expect(game.litShots).toEqual(["target", "piggy", "ramp"]);
   });
 
   it("鼻息照準: バンパーからは点が出ない", () => {
@@ -178,7 +178,7 @@ describe("狙いのおまじない", () => {
     const game = withCharm("snort-sight");
     const modifier = game.rules.modifiers[0];
     for (let i = 0; i < 8; i++) modifier.event?.("bumper", game);
-    expect(game.litShots).toEqual(["ramp", "target", "piggy"]);
+    expect(game.litShots).toEqual(["target", "piggy", "ramp"]);
   });
 
   it("鼻息照準: 7回ではまだ光らない", () => {
