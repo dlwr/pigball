@@ -1,4 +1,4 @@
-import { CHARMS } from "../run/charms";
+import { CHARMS, GROWTH_PER_SHOT } from "../run/charms";
 import type { CurseDef } from "../run/curses";
 import { LIVES, MAX_CHARMS, type Run, STAGES } from "../run/run";
 
@@ -106,7 +106,7 @@ export class Screens {
       .map((id) => {
         const charm = CHARMS[id];
         return `<li class="shop-row owned">
-          <div><strong>${escape(charm.name)}</strong><span>${escape(charm.description)}</span></div>
+          <div><strong>${escape(charm.name)}${charm.grows ? ` · ×${(1 + GROWTH_PER_SHOT * run.growth(id)).toFixed(2)}` : ""}</strong><span>${escape(charm.description)}</span></div>
           <button data-sell="${id}">${Math.floor(charm.price / 2)} で売る</button>
         </li>`;
       })

@@ -1,4 +1,4 @@
-import { MAX_MULTIPLIER, type Modifier, type ScoreKind } from "../game/game";
+import { MAX_MULTIPLIER, MAX_SHOT_LEVEL, type Modifier, type ScoreKind } from "../game/game";
 
 export interface CharmDef {
   id: string;
@@ -6,10 +6,13 @@ export interface CharmDef {
   description: string;
   price: number;
   rare?: boolean;
+  grows?: boolean;
   effect: Omit<Modifier, "id">;
 }
 
 const ROTOR_FRENZY_OMEGA = 4;
+const SNORTS_PER_SHOT = 8;
+export const GROWTH_PER_SHOT = 0.05;
 
 const boost = (kinds: Partial<Record<ScoreKind, number>>): Omit<Modifier, "id"> => ({
   score: (kind, points) => points * (kinds[kind] ?? 1),
@@ -81,6 +84,66 @@ const defs: CharmDef[] = [
       },
     },
   },
+  { id: "sharpshooter", name: "一点狙い", description: "光ったショットの上乗せが2倍", price: 6, effect: { shot: (_shot, points) => points * 2 } },
+  {
+    id: "follow-through",
+    name: "畳みかけ",
+    description: "光ったショットに当てると、段階が2つ上がる",
+    price: 5,
+    effect: {
+      event: (kind, game) => {
+        if (kind !== "shot") return false;
+        game.shotLevel = Math.min(MAX_SHOT_LEVEL, game.shotLevel + 1);
+        return true;
+      },
+    },
+  },
+  {
+    id: "navel-sight",
+    name: "へそ照準",
+    description: "へそに入ると、次のショットも光る",
+    price: 5,
+    effect: {
+      event: (kind, game) => {
+        if (kind !== "navelIn") return false;
+        game.lightShot();
+        return true;
+      },
+    },
+  },
+  {
+    id: "snort-sight",
+    name: "鼻息照準",
+    description: `バンパーの点がなくなる代わりに、${SNORTS_PER_SHOT}回当てるごとに次のショットも光る`,
+    price: 4,
+    effect: {
+      score: (kind, points) => (kind === "bumper" ? 0 : points),
+      event(kind, game) {
+        if (kind !== "bumper") return false;
+        this.count = (this.count ?? 0) + 1;
+        if (this.count % SNORTS_PER_SHOT !== 0) return false;
+        game.lightShot();
+        return true;
+      },
+    },
+  },
+  {
+    id: "big-eater",
+    name: "食べ盛り",
+    description: `光ったショットに当てるたびに育ち、全部の点が${GROWTH_PER_SHOT * 100}%ずつ増える。育ちはランの間ずっと残る`,
+    price: 7,
+    grows: true,
+    effect: {
+      score(_kind, points) {
+        return points * (1 + GROWTH_PER_SHOT * (this.count ?? 0));
+      },
+      event(kind) {
+        if (kind !== "shot") return false;
+        this.count = (this.count ?? 0) + 1;
+        return true;
+      },
+    },
+  },
   { id: "golden-snout", name: "金の鼻", description: "全部の点が1.5倍", price: 9, rare: true, effect: { score: (_kind, points) => points * 1.5 } },
   {
     id: "pig-horde",
@@ -120,7 +183,14 @@ const defs: CharmDef[] = [
       },
     },
   },
-  { id: "golden-nostrils", name: "金の鼻穴", description: "バンパーの点が20倍", price: 8, rare: true, effect: boost({ bumper: 20 }) },
+  {
+    id: "sight-god",
+    name: "照準の神",
+    description: "ボールを落としても、光ったショットの段階が戻らない",
+    price: 9,
+    rare: true,
+    effect: { start: (game) => (game.keepsShotLevel = true) },
+  },
   { id: "pig-god", name: "豚の神様", description: "呪いが効かない", price: 9, rare: true, effect: {} },
 ];
 

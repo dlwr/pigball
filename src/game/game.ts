@@ -92,7 +92,7 @@ const MULTIBALL_SAVE_SECONDS = 10;
 const AUTO_LAUNCH_INTERVAL = 0.7;
 const AUTO_LAUNCH_Y = 10;
 const AUTO_LAUNCH_SPEED = 180;
-const MAX_SHOT_LEVEL = 5;
+export const MAX_SHOT_LEVEL = 5;
 
 export type Shot = "ramp" | "target" | "piggy" | "belly";
 
@@ -122,10 +122,12 @@ export type ScoreKind = keyof typeof SCORES | "spinner" | "bonus" | "misc";
 
 export interface Modifier {
   id: string;
+  count?: number;
   layout?(layout: TableLayout): void;
   params?(params: PhysicsParams): void;
   start?(game: Game): void;
   score?(kind: ScoreKind, points: number, game: Game): number;
+  shot?(shot: Shot, points: number, game: Game): number;
   rampWorth?(game: Game): number;
   event?(kind: GameEventKind, game: Game): boolean | void;
 }
@@ -186,6 +188,7 @@ export class Game {
   multiplier = 1;
   litShots: Shot[] = SHOT_ORDER.slice(0, 2);
   shotLevel = 1;
+  keepsShotLevel = false;
   litLanes = [false, false, false];
   tilted = false;
   skillShotLit = true;
@@ -430,7 +433,7 @@ export class Game {
     this.bonus = 0;
     this.bonusCounts = { bumper: 0, ramp: 0, target: 0, rollover: 0 };
     this.multiplier = 1;
-    this.shotLevel = 1;
+    if (!this.keepsShotLevel) this.shotLevel = 1;
     this.litLanes = [false, false, false];
     this.tilted = false;
     this.tiltMeter = 0;
@@ -578,12 +581,20 @@ export class Game {
 
   private hitShot(shot: Shot, x: number, y: number): void {
     if (!this.litShots.includes(shot)) return;
-    this.award(shot, SHOT_POINTS[shot] * this.shotLevel);
-    const next = this.nextShot;
-    this.litShots = [...this.litShots.filter((s) => s !== shot), next];
-    this.shotCursor = SHOT_ORDER.indexOf(next) + 1;
-    this.emit("shot", x, y, this.shotLevel, shot);
+    const points = this.rules.modifiers.reduce((p, m) => (m.shot ? m.shot(shot, p, this) : p), SHOT_POINTS[shot] * this.shotLevel);
+    this.award(shot, points);
+    const level = this.shotLevel;
     this.shotLevel = Math.min(MAX_SHOT_LEVEL, this.shotLevel + 1);
+    this.litShots = this.litShots.filter((s) => s !== shot);
+    this.lightShot();
+    this.emit("shot", x, y, level, shot);
+  }
+
+  lightShot(): void {
+    if (this.litShots.length >= SHOT_ORDER.length) return;
+    const next = this.nextShot;
+    this.litShots = [...this.litShots, next];
+    this.shotCursor = SHOT_ORDER.indexOf(next) + 1;
   }
 
   private fireKickback(side: Side, ball: Ball): void {

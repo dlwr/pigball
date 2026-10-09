@@ -4,8 +4,23 @@ import { createParams } from "../physics/params";
 import { CHARMS, CHARM_IDS } from "./charms";
 import { CURSES, CURSE_IDS } from "./curses";
 
-const storage = { load: () => 0, save: () => {} };
 const DT = 1 / 960;
+
+const storage = { load: () => 0, save: () => {} };
+
+const placeBall = (game: Game, x: number, y: number, vx: number, vy: number) =>
+  Object.assign(game.world.balls[0], { x, y, prevX: x, prevY: y, vx, vy });
+
+const hitTarget = (game: Game) => {
+  const target = game.layout.targets[0];
+  placeBall(game, target.ax + 2, (target.ay + target.by) / 2, -60, 0);
+  for (let i = 0; i < 48; i++) game.step(DT);
+};
+
+const drainBall = (game: Game) => {
+  placeBall(game, 23, -4, 0, -10);
+  game.step(DT);
+};
 
 const playBriefly = (game: Game) => {
   game.setPlunger(true);
@@ -118,7 +133,70 @@ describe("ルールを壊すレアなおまじない", () => {
     expect(most).toBe(2);
   });
 
-  it("金の鼻穴: バンパーの点が20倍", () => {
-    expect(CHARMS["golden-nostrils"].effect.score?.("bumper", 100, withCharm("golden-nostrils"))).toBe(2000);
+  it("照準の神: ボールを落としても光ったショットの段階が戻らない", () => {
+    const game = withCharm("sight-god");
+    hitTarget(game);
+    drainBall(game);
+    expect(game.shotLevel).toBe(2);
+  });
+});
+
+describe("狙いのおまじない", () => {
+  const withCharm = (id: string, count = 0) => new Game(createParams(), storage, { modifiers: [{ id, ...CHARMS[id].effect, count }] });
+
+  const pointsOf = (game: Game, act: () => void) => {
+    const before = game.score;
+    act();
+    return game.score - before;
+  };
+
+  it("一点狙い: 光ったショットの上乗せが2倍", () => {
+    const game = withCharm("sharpshooter");
+    expect(pointsOf(game, () => hitTarget(game))).toBe(500 + 2000 * 2);
+  });
+
+  it("畳みかけ: 光ったショットに当てると段階が2上がる", () => {
+    const game = withCharm("follow-through");
+    hitTarget(game);
+    expect(game.shotLevel).toBe(3);
+  });
+
+  it("へそ照準: へそに入ると、次のショットも光る", () => {
+    const game = withCharm("navel-sight");
+    const { navel } = game.layout;
+    placeBall(game, navel.x, navel.y + 3, 0, -20);
+    for (let i = 0; i < 300; i++) game.step(DT);
+    expect(game.litShots).toEqual(["ramp", "target", "piggy"]);
+  });
+
+  it("鼻息照準: バンパーからは点が出ない", () => {
+    const game = withCharm("snort-sight");
+    expect(game.rules.modifiers[0].score?.("bumper", 100, game)).toBe(0);
+  });
+
+  it("鼻息照準: バンパーに8回当てると、次のショットも光る", () => {
+    const game = withCharm("snort-sight");
+    const modifier = game.rules.modifiers[0];
+    for (let i = 0; i < 8; i++) modifier.event?.("bumper", game);
+    expect(game.litShots).toEqual(["ramp", "target", "piggy"]);
+  });
+
+  it("鼻息照準: 7回ではまだ光らない", () => {
+    const game = withCharm("snort-sight");
+    const modifier = game.rules.modifiers[0];
+    for (let i = 0; i < 7; i++) modifier.event?.("bumper", game);
+    expect(game.litShots).toHaveLength(2);
+  });
+
+  it("食べ盛り: 光ったショットに当てるたびに育つ", () => {
+    const game = withCharm("big-eater");
+    hitTarget(game);
+    expect(game.rules.modifiers[0].count).toBe(1);
+  });
+
+  it("食べ盛り: 育った分だけ全部の点が増える", () => {
+    const game = withCharm("big-eater", 4);
+    game.addScore(100);
+    expect(game.score).toBe(120);
   });
 });
