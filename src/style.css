@@ -553,3 +553,27 @@ body {
   font-style: normal;
   color: var(--cool);
 }
+
+.shop-row.part {
+  flex-wrap: wrap;
+}
+
+.socket-buttons {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 100%;
+}
+
+.shop-row .socket-buttons {
+  flex: 0 0 100%;
+}
+
+.socket-buttons button {
+  flex: 1;
+}
+
+.socket-line {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}

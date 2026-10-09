@@ -1,9 +1,14 @@
 import { CHARMS, GROWTH_PER_SHOT } from "../run/charms";
 import type { CurseDef } from "../run/curses";
+import type { SocketId } from "../game/table";
+import { PARTS } from "../run/parts";
 import { LIVES, MAX_CHARMS, type Run, STAGES } from "../run/run";
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
 const format = (n: number) => Math.round(n).toLocaleString("en-US");
+const SOCKET_NAMES: Record<SocketId, string> = { left: "左上", center: "中央", right: "右上" };
+const SOCKET_ORDER: SocketId[] = ["left", "center", "right"];
+
 const hearts = (lives: number) => `${"♥".repeat(lives)}${"♡".repeat(LIVES - lives)}`;
 const escape = (text: string) => text.replace(/[&<>"]/g, (c) => `&${{ "&": "amp", "<": "lt", ">": "gt", '"': "quot" }[c]};`);
 
@@ -90,6 +95,13 @@ export class Screens {
   shop(run: Run, onChange: () => void, onNext: () => void): void {
     const full = run.charms.length >= MAX_CHARMS;
     const nextStage = run.retrying ? run.stage : run.stage + 1;
+    const part = run.shop.part ? PARTS[run.shop.part] : null;
+    const partOffer = part
+      ? `<li class="shop-row part">
+          <div><strong>${escape(part.name)} · ${part.price}</strong><span>${escape(part.description)}</span></div>
+          <div class="socket-buttons">${SOCKET_ORDER.map((socket) => `<button data-socket="${socket}" ${run.truffles < part.price ? "disabled" : ""}>${SOCKET_NAMES[socket]}に</button>`).join("")}</div>
+        </li>`
+      : "";
     const offers = run.shop.offers
       .map((id, i) => {
         const charm = CHARMS[id];
@@ -116,6 +128,9 @@ export class Screens {
        <div class="screen-goal"><span>トリュフ</span>${run.truffles}</div>
        ${this.curseBlock(run.curse, !run.activeCurse)}
        <ul class="shop-list">${offers || `<li class="shop-empty">売り切れ</li>`}</ul>
+       <div class="screen-sub">台の部位</div>
+       <ul class="shop-list">${partOffer || `<li class="shop-empty">売り切れ</li>`}</ul>
+       <p class="socket-line">${SOCKET_ORDER.map((socket) => `${SOCKET_NAMES[socket]} ${run.parts[socket] ? escape(PARTS[run.parts[socket]].name) : "空き"}`).join(" · ")}</p>
        <div class="screen-sub">おまじない ${run.charms.length} / ${MAX_CHARMS}</div>
        <ul class="shop-list">${owned || `<li class="shop-empty">まだ持っていない</li>`}</ul>`,
       [
@@ -126,6 +141,12 @@ export class Screens {
     this.root.querySelectorAll<HTMLButtonElement>("[data-buy]").forEach((button) =>
       button.addEventListener("click", () => {
         run.buy(Number(button.dataset.buy));
+        onChange();
+      }),
+    );
+    this.root.querySelectorAll<HTMLButtonElement>("[data-socket]").forEach((button) =>
+      button.addEventListener("click", () => {
+        run.buyPart(button.dataset.socket as SocketId);
         onChange();
       }),
     );
