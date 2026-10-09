@@ -130,7 +130,7 @@ const defs: CharmDef[] = [
   {
     id: "big-eater",
     name: "食べ盛り",
-    description: `光ったショットに当てるたびに育ち、全部の点が${GROWTH_PER_SHOT}倍ずつ増える。育ちはランの間ずっと残る`,
+    description: `光ったショットに当てるたびに育ち、全部の点が${GROWTH_PER_SHOT * 100}%ずつ増える。育ちはランの間ずっと残る`,
     price: 7,
     grows: true,
     effect: {
