@@ -428,12 +428,14 @@ describe("Game", () => {
 
     it("当てると倒れて500点", () => {
       const game = newGame();
+      game.litShots = [];
       hitTarget(game, 0);
       expect([game.score, game.isTargetDown(0)]).toEqual([500, true]);
     });
 
     it("全部倒すとボーナスが入る", () => {
       const game = newGame();
+      game.litShots = [];
       hitTarget(game, 0);
       hitTarget(game, 1);
       hitTarget(game, 2);
@@ -1296,6 +1298,92 @@ describe("Game", () => {
       for (let i = 0; i < 6; i++) game.nudge(1, 0);
       drain(game);
       expect(game.tilted).toBe(false);
+    });
+  });
+  describe("点灯ショット", () => {
+    const hitTarget = (game: Game, index: number) => {
+      const target = game.layout.targets[index];
+      place(game, target.ax + 2, (target.ay + target.by) / 2, -60, 0);
+      run(game, 0.05);
+    };
+
+    const hitPiggy = (game: Game) => {
+      const piggy = game.world.movers[0];
+      place(game, piggy.x, piggy.y - piggy.r - ball(game).r - 2, 0, 80);
+      run(game, 0.06);
+      place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+      run(game, 0.05);
+    };
+
+    const hitBelly = (game: Game) => {
+      const belly = game.layout.bellies[0];
+      place(game, belly.ax - 5, (belly.ay + belly.by) / 2, 80, 0);
+      run(game, 0.1);
+    };
+
+    const pointsOf = (game: Game, act: () => void) => {
+      const before = game.score;
+      act();
+      return game.score - before;
+    };
+
+    it("ランプとターゲットが光り、次は貯金箱が光る状態で始まる", () => {
+      const game = newGame();
+      expect([game.litShots, game.nextShot]).toEqual([["ramp", "target"], "piggy"]);
+    });
+
+    it("光っているターゲットに当てると2000点上乗せされる", () => {
+      const game = newGame();
+      expect(pointsOf(game, () => hitTarget(game, 0))).toBe(500 + 2000);
+    });
+
+    it("光っていないお腹に当てても上乗せはない", () => {
+      const game = newGame();
+      expect(pointsOf(game, () => hitBelly(game))).toBe(30);
+    });
+
+    it("光っているショットに当てると、その光が消えて次のショットが光る", () => {
+      const game = newGame();
+      hitTarget(game, 0);
+      expect([game.litShots, game.nextShot]).toEqual([["ramp", "piggy"], "belly"]);
+    });
+
+    it("難しいショットは上乗せが大きい", () => {
+      const game = newGame();
+      hitTarget(game, 0);
+      game.shotLevel = 1;
+      expect(pointsOf(game, () => hitPiggy(game))).toBe(250 + 4000);
+    });
+
+    it("同じボールで光ったショットを続けて当てるほど上乗せが増える", () => {
+      const game = newGame();
+      hitTarget(game, 0);
+      expect(pointsOf(game, () => hitPiggy(game))).toBe(250 + 4000 * 2);
+    });
+
+    it("ボールを落とすと上乗せの段階が戻る", () => {
+      const game = newGame();
+      hitTarget(game, 0);
+      drain(game);
+      expect(game.shotLevel).toBe(1);
+    });
+
+    it("光っているショットに当てると知らせる", () => {
+      const game = newGame();
+      hitTarget(game, 0);
+      expect(game.drainEvents().filter((e) => e.kind === "shot").map((e) => e.id)).toEqual(["target"]);
+    });
+
+    it("やり直すと最初の光り方に戻る", () => {
+      const game = newGame();
+      hitTarget(game, 0);
+      game.restart();
+      expect([game.litShots, game.nextShot]).toEqual([["ramp", "target"], "piggy"]);
+    });
+
+    it("上乗せはそのショットの点としておまじないが掛かる", () => {
+      const game = gameWith({ modifiers: [{ id: "teeth", score: (kind, points) => (kind === "target" ? points * 3 : points) }] });
+      expect(pointsOf(game, () => hitTarget(game, 0))).toBe((500 + 2000) * 3);
     });
   });
 });
