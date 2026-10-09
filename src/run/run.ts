@@ -1,6 +1,8 @@
 import type { GameRules, Modifier } from "../game/game";
+import { DEFAULT_PARTS, type PartId, type SocketId, type TableParts } from "../game/table";
 import { CHARMS, COMMON_CHARM_IDS, RARE_CHARM_IDS } from "./charms";
 import { CURSES, CURSE_IDS, type CurseDef } from "./curses";
+import { PARTS, PART_IDS } from "./parts";
 import { Rng } from "./rng";
 
 export interface StageDef {
@@ -42,6 +44,7 @@ export interface Shop {
   offers: string[];
   rerollCost: number;
   kept: string | null;
+  part: PartId | null;
 }
 
 export interface RunData {
@@ -56,7 +59,8 @@ export interface RunData {
   counts?: Record<string, number>;
   curse: string | null;
   usedBossCurses: string[];
-  shop: Omit<Shop, "kept"> & { kept?: string | null };
+  shop: Omit<Shop, "kept" | "part"> & { kept?: string | null; part?: PartId | null };
+  parts?: TableParts;
   lastReward: number;
 }
 
@@ -69,7 +73,8 @@ export class Run {
   lives = LIVES;
   retrying = false;
   charms: string[] = [];
-  shop: Shop = { offers: [], rerollCost: 1, kept: null };
+  shop: Shop = { offers: [], rerollCost: 1, kept: null, part: null };
+  parts: TableParts = { ...DEFAULT_PARTS };
   lastReward = 0;
   lastOverkill = 0;
   private counts: Record<string, number> = {};
@@ -99,7 +104,7 @@ export class Run {
     this.stageModifiers = [...modifiers];
     const curse = this.activeCurse;
     if (curse) modifiers.push(toModifier(curse.id, curse.effect));
-    return { balls: BALLS_PER_STAGE, target: this.stageDef.target, modifiers };
+    return { balls: BALLS_PER_STAGE, target: this.stageDef.target, modifiers, parts: { ...this.parts } };
   }
 
   growth(id: string): number {
@@ -142,6 +147,14 @@ export class Run {
     if (this.shop.kept === id) this.shop.kept = null;
   }
 
+  buyPart(socket: SocketId): void {
+    const { part } = this.shop;
+    if (this.phase !== "shop" || !part || this.truffles < PARTS[part].price) return;
+    this.truffles -= PARTS[part].price;
+    this.parts[socket] = part;
+    this.shop.part = null;
+  }
+
   keep(index: number): void {
     const id = this.shop.offers[index];
     if (this.phase !== "shop" || !id) return;
@@ -159,7 +172,7 @@ export class Run {
   reroll(): void {
     if (this.phase !== "shop" || this.truffles < this.shop.rerollCost) return;
     this.truffles -= this.shop.rerollCost;
-    this.shop = { ...this.shop, offers: this.rollOffers(), rerollCost: this.shop.rerollCost + 1 };
+    this.shop = { ...this.shop, offers: this.rollOffers(), part: this.rng.pick(PART_IDS), rerollCost: this.shop.rerollCost + 1 };
   }
 
   nextStage(): void {
@@ -182,6 +195,7 @@ export class Run {
       curse: this.curseId,
       usedBossCurses: [...this.usedBossCurses],
       shop: { ...this.shop, offers: [...this.shop.offers] },
+      parts: { ...this.parts },
       lastReward: this.lastReward,
     };
   }
@@ -198,14 +212,16 @@ export class Run {
     run.curseId = data.curse && data.curse in CURSES ? data.curse : null;
     run.usedBossCurses = [...data.usedBossCurses];
     const kept = data.shop.kept && data.shop.kept in CHARMS ? data.shop.kept : null;
-    run.shop = { offers: data.shop.offers.filter((id) => id in CHARMS), rerollCost: data.shop.rerollCost, kept };
+    const part = data.shop.part && data.shop.part in PARTS ? data.shop.part : null;
+    run.shop = { offers: data.shop.offers.filter((id) => id in CHARMS), rerollCost: data.shop.rerollCost, kept, part };
+    run.parts = { ...(data.parts ?? DEFAULT_PARTS) };
     run.lastReward = data.lastReward;
     if (data.lives === undefined && data.phase === "shop") run.curseId = run.rollCurse(data.stage + 1);
     return run;
   }
 
   private openShop(): void {
-    this.shop = { ...this.shop, offers: this.rollOffers(), rerollCost: 1 };
+    this.shop = { ...this.shop, offers: this.rollOffers(), part: this.rng.pick(PART_IDS), rerollCost: 1 };
   }
 
   private rollOffers(): string[] {
