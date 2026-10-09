@@ -1415,6 +1415,12 @@ describe("Game", () => {
   describe("差込口の部位", () => {
     const withParts = (parts: GameRules["parts"]) => gameWith({ parts });
 
+    const hitTarget = (game: Game, index: number) => {
+      const target = game.layout.targets[index];
+      place(game, target.ax + 2, (target.ay + target.by) / 2, -60, 0);
+      run(game, 0.05);
+    };
+
     const hitEye = (game: Game, index = 0) => {
       const eye = game.layout.eyes[index];
       place(game, eye.x, eye.y - eye.r - ball(game).r - 2, 0, 80);
@@ -1476,11 +1482,23 @@ describe("Game", () => {
       expect([ball(game).frozen, second.frozen]).toEqual([true, true]);
     });
 
-    it("目玉は狙いやすい組に入り、ランプのあとに光る", () => {
-      const game = withParts({ left: "eye" });
-      game.litShots = ["ramp", "piggy"];
+    it("部位のショットは別の組になり、最初から1つ光る", () => {
+      const game = withParts({ left: "eye", right: "stomach" });
+      expect(game.litShots).toEqual(["target", "piggy", "eye"]);
+    });
+
+    it("部位を入れても、ターゲットとランプは交互に光り続ける", () => {
+      const game = withParts({ left: "eye", right: "stomach" });
+      hitTarget(game, 0);
+      const afterTarget = game.litShots.includes("ramp");
       completeRamps(game, 1);
-      expect(game.litShots).toEqual(["piggy", "eye"]);
+      expect([afterTarget, game.litShots.includes("target")]).toEqual([true, true]);
+    });
+
+    it("光った目玉に当てると、部位の組の胃袋に光が移る", () => {
+      const game = withParts({ left: "eye", right: "stomach" });
+      hitEye(game);
+      expect(game.litShots).toEqual(["target", "piggy", "stomach"]);
     });
 
     it("光った目玉に当てると上乗せが入る", () => {

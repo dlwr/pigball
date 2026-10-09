@@ -234,7 +234,7 @@ export class Game {
     const { modifiers } = this.rules;
     this.layout = createLayout(this.rules.parts);
     const partShots: Shot[] = [...(this.layout.eyes.length > 0 ? ["eye" as const] : []), ...(this.layout.stomachs.length > 0 ? ["stomach" as const] : [])];
-    this.shotGroups = [["target", "ramp", ...partShots], ["piggy", "belly"]];
+    this.shotGroups = ([["target", "ramp"], ["piggy", "belly"], partShots] as Shot[][]).filter((group) => group.length > 0);
     this.litShots = this.firstLitShots();
     this.saucers = [this.layout.navel, ...this.layout.stomachs].map((def) => ({ def, ball: null, time: 0, cooldown: 0 }));
     this.ballsLeft = this.rules.balls;
