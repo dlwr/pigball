@@ -4,6 +4,8 @@ import { Run, STAGES } from "./run";
 
 const clearStage = (run: Run, ballsLeft = 1, score = run.stageDef.target) => run.finishStage({ cleared: true, ballsLeft, score });
 
+const failStage = (run: Run) => run.finishStage({ cleared: false, ballsLeft: 0, score: 0 });
+
 const richRun = (seed = 1) => {
   const run = new Run(seed);
   clearStage(run);
@@ -62,9 +64,32 @@ describe("ラン", () => {
       expect(b.truffles - a.truffles).toBe(15);
     });
 
-    it("届かなかったらランは終わる", () => {
+    it("命3つで始まる", () => {
+      expect(new Run(1).lives).toBe(3);
+    });
+
+    it("届かなかったら命を1つ失い、トリュフなしでショップに進む", () => {
       const run = new Run(1);
-      run.finishStage({ cleared: false, ballsLeft: 0, score: 0 });
+      failStage(run);
+      expect([run.lives, run.truffles, run.phase]).toEqual([2, 0, "shop"]);
+    });
+
+    it("届かなかったステージは、ショップのあとにやり直す", () => {
+      const run = new Run(1);
+      clearStage(run);
+      run.nextStage();
+      const curse = run.curse?.id;
+      failStage(run);
+      run.nextStage();
+      expect([run.stage, run.curse?.id]).toEqual([1, curse]);
+    });
+
+    it("命がなくなったらランは終わる", () => {
+      const run = new Run(1);
+      for (let i = 0; i < 3; i++) {
+        failStage(run);
+        run.nextStage();
+      }
       expect(run.phase).toBe("lost");
     });
 
@@ -96,6 +121,15 @@ describe("ラン", () => {
       clearStage(run);
       run.nextStage();
       expect(run.curse).not.toBeNull();
+    });
+
+    it("ショップにいる間に、次のステージの呪いが分かる", () => {
+      const run = new Run(1);
+      clearStage(run);
+      const upcoming = run.curse?.id;
+      run.reroll();
+      run.nextStage();
+      expect([upcoming, run.curse?.id]).toEqual([run.curse?.id, expect.any(String)]);
     });
 
     it("ボスステージにはボス用の呪いが付く", () => {
@@ -185,6 +219,44 @@ describe("ラン", () => {
       expect([run.shop.offers.join() !== before.join(), run.shop.rerollCost]).toEqual([true, cost + 1]);
     });
 
+    it("キープした品は、並べ直しても残る", () => {
+      const run = richRun();
+      const offer = run.shop.offers[1];
+      run.keep(1);
+      run.reroll();
+      expect(run.shop.offers[0]).toBe(offer);
+    });
+
+    it("キープした品は、次のショップにも並ぶ", () => {
+      const run = richRun();
+      const offer = run.shop.offers[2];
+      run.keep(2);
+      run.nextStage();
+      clearStage(run);
+      expect([run.shop.offers[0], run.shop.offers.length]).toEqual([offer, 3]);
+    });
+
+    it("キープは1つだけで、別の品をキープすると前のは外れる", () => {
+      const run = richRun();
+      run.keep(0);
+      run.keep(1);
+      expect(run.shop.kept).toBe(run.shop.offers[1]);
+    });
+
+    it("キープした品をもう一度選ぶと外れる", () => {
+      const run = richRun();
+      run.keep(0);
+      run.keep(0);
+      expect(run.shop.kept).toBeNull();
+    });
+
+    it("キープした品を買うとキープは外れる", () => {
+      const run = richRun();
+      run.keep(0);
+      run.buy(0);
+      expect(run.shop.kept).toBeNull();
+    });
+
     it("たまにレアなおまじないが並ぶ", () => {
       const offers = Array.from({ length: 60 }, (_, seed) => richRun(seed).shop.offers).flat();
       const rares = offers.filter((id) => CHARMS[id].rare).length;
@@ -202,6 +274,11 @@ describe("ラン", () => {
     run.reroll();
     const restored = Run.fromJSON(JSON.parse(JSON.stringify(run.toJSON())));
     expect(restored.toJSON()).toEqual(run.toJSON());
+  });
+
+  it("命の入っていない古い保存データは、命3つで復元される", () => {
+    const { lives: _lives, retrying: _retrying, ...old } = new Run(1).toJSON();
+    expect(Run.fromJSON(old).lives).toBe(3);
   });
 
   it("復元したランは続きの品揃えも同じになる", () => {
