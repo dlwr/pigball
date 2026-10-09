@@ -112,6 +112,7 @@ export class Hud {
     if (event.kind === "ramp") this.showToast(this.rampText(event.speed, game));
     else if (event.kind === "lanes") this.showToast(`MULTIPLIER ×${game.multiplier}`);
     else if (event.kind === "bank") this.showToast("TARGET BANK");
+    else if (event.kind === "shot") this.showToast(`BULLSEYE ×${event.speed}`);
     else if (event.kind === "skill") this.showToast("SKILL SHOT");
     else if (event.kind === "save") this.showToast("BALL SAVED");
     else if (event.kind === "extraBall") this.showToast("EXTRA BALL");

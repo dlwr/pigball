@@ -44,6 +44,7 @@ export type GameEventKind =
   | "over"
   | "stageClear"
   | "fever"
+  | "shot"
   | "charm";
 
 export interface GameEvent {
@@ -91,6 +92,13 @@ const MULTIBALL_SAVE_SECONDS = 10;
 const AUTO_LAUNCH_INTERVAL = 0.7;
 const AUTO_LAUNCH_Y = 10;
 const AUTO_LAUNCH_SPEED = 180;
+const MAX_SHOT_LEVEL = 5;
+
+export type Shot = "ramp" | "target" | "piggy" | "belly";
+
+export const SHOT_ORDER: Shot[] = ["ramp", "target", "piggy", "belly"];
+
+const SHOT_POINTS: Record<Shot, number> = { ramp: 2000, target: 2000, piggy: 4000, belly: 4000 };
 
 const SCORES = {
   bumper: 100,
@@ -176,6 +184,8 @@ export class Game {
   rampsTowardExtraBall = 0;
   kickbacksLit: Record<Side, boolean> = { left: true, right: false };
   multiplier = 1;
+  litShots: Shot[] = SHOT_ORDER.slice(0, 2);
+  shotLevel = 1;
   litLanes = [false, false, false];
   tilted = false;
   skillShotLit = true;
@@ -187,6 +197,7 @@ export class Game {
   private rampCombo = 0;
   private rampComboTime = 0;
   private spinsTowardRightKickback = 0;
+  private shotCursor = 2;
   private pendingLaunches = 0;
   private piggyRespawnTime = 0;
   private targetReached = false;
@@ -235,6 +246,14 @@ export class Game {
 
   get inFever(): boolean {
     return this.feverTime > 0;
+  }
+
+  get nextShot(): Shot {
+    for (let i = 0; i < SHOT_ORDER.length; i++) {
+      const shot = SHOT_ORDER[(this.shotCursor + i) % SHOT_ORDER.length];
+      if (!this.litShots.includes(shot)) return shot;
+    }
+    return SHOT_ORDER[this.shotCursor % SHOT_ORDER.length];
   }
 
   get ballSaveActive(): boolean {
@@ -308,6 +327,8 @@ export class Game {
     this.stats = emptyStats();
     this.newHighScore = false;
     this.inMultiball = false;
+    this.litShots = SHOT_ORDER.slice(0, 2);
+    this.shotCursor = 2;
     this.navelBall = null;
     this.navelCooldown = 0;
     this.piggyHits = 0;
@@ -409,6 +430,7 @@ export class Game {
     this.bonus = 0;
     this.bonusCounts = { bumper: 0, ramp: 0, target: 0, rollover: 0 };
     this.multiplier = 1;
+    this.shotLevel = 1;
     this.litLanes = [false, false, false];
     this.tilted = false;
     this.tiltMeter = 0;
@@ -482,6 +504,7 @@ export class Game {
     } else if (id.startsWith("belly")) {
       this.award("belly", SCORES.belly);
       this.emit("belly", x, y, speed, id);
+      this.hitShot("belly", x, y);
     } else if (id === "rotor") {
       this.award("rotor", SCORES.rotor);
       this.emit("rotor", x, y, speed, id);
@@ -502,6 +525,7 @@ export class Game {
   private hitPiggy(x: number, y: number, speed: number): void {
     this.award("piggy", SCORES.piggy);
     this.emit("piggy", x, y, speed);
+    this.hitShot("piggy", x, y);
     if (++this.piggyHits < this.piggyHitsToBreak) return;
     this.award("piggyBreak", SCORES.piggyBreak);
     this.world.movers[0].enabled = false;
@@ -552,6 +576,16 @@ export class Game {
     this.emit("navelOut", navel.x, navel.y, NAVEL_EJECT_SPEED);
   }
 
+  private hitShot(shot: Shot, x: number, y: number): void {
+    if (!this.litShots.includes(shot)) return;
+    this.award(shot, SHOT_POINTS[shot] * this.shotLevel);
+    const next = this.nextShot;
+    this.litShots = [...this.litShots.filter((s) => s !== shot), next];
+    this.shotCursor = SHOT_ORDER.indexOf(next) + 1;
+    this.emit("shot", x, y, this.shotLevel, shot);
+    this.shotLevel = Math.min(MAX_SHOT_LEVEL, this.shotLevel + 1);
+  }
+
   private fireKickback(side: Side, ball: Ball): void {
     if (!this.kickbacksLit[side] || ball.vy > 0) return;
     this.kickbacksLit[side] = false;
@@ -566,6 +600,7 @@ export class Game {
     this.award("ramp", SCORES.ramp * this.rampCombo);
     this.addBonus("ramp");
     this.emit("ramp", x, y, this.rampCombo);
+    this.hitShot("ramp", x, y);
     if (this.inMultiball) {
       this.award("jackpot", SCORES.jackpot);
       this.stats.jackpots++;
@@ -595,6 +630,7 @@ export class Game {
     this.award("target", SCORES.target);
     this.addBonus("target");
     this.emit("target", x, y, speed, id);
+    this.hitShot("target", x, y);
     if (this.targets.every((t) => !t.enabled)) {
       this.award("bank", SCORES.bank);
       this.stats.banks++;

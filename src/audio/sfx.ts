@@ -85,6 +85,9 @@ export class Sfx {
         this.tone("triangle", 520, 260, 0.1, 0.5);
         this.burst(1200, 0.04, 0.4, 2);
         break;
+      case "shot":
+        this.arpeggio([659, 880, 1109, 1319].map((f) => f * (1 + (event.speed - 1) * 0.125)), 0.04, "triangle", 0.3);
+        break;
       case "bank":
         this.arpeggio([523, 659, 784, 1047], 0.06, "square", 0.25);
         break;
