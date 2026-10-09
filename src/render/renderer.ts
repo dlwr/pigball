@@ -1,7 +1,7 @@
 import { BloomEffect, EffectComposer, EffectPass, RenderPass, ToneMappingEffect, ToneMappingMode, VignetteEffect } from "postprocessing";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { type Game, type GameEvent, RAMPS_FOR_EXTRA_BALL, RAMPS_FOR_MULTIBALL, SHOT_ORDER, type Shot } from "../game/game";
+import { type Game, type GameEvent, RAMPS_FOR_EXTRA_BALL, RAMPS_FOR_MULTIBALL, SHOTS, type Shot } from "../game/game";
 import { type Side, TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
 import type { Ball, Flipper, SegmentDef } from "../physics/world";
 import { LAYER_RAMP } from "../physics/world";
@@ -644,7 +644,7 @@ export class TableRenderer {
       new THREE.Shape([new THREE.Vector2(2.4, 0), new THREE.Vector2(-1.5, 2), new THREE.Vector2(-0.6, 0), new THREE.Vector2(-1.5, -2)]),
     );
     const markers = {} as Record<Shot, ShotMarker>;
-    for (const shot of SHOT_ORDER) {
+    for (const shot of SHOTS) {
       const [x, y, angle] = places[shot];
       const material = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.laneOn, emissiveIntensity: 0, transparent: true });
       const mesh = new THREE.Mesh(geometry, material);
@@ -657,10 +657,10 @@ export class TableRenderer {
   }
 
   private syncShotMarkers(dt: number): void {
-    const { litShots, nextShot } = this.game;
-    for (const shot of SHOT_ORDER) {
+    const { litShots } = this.game;
+    for (const shot of SHOTS) {
       const marker = this.shotMarkers[shot];
-      const target = litShots.includes(shot) ? 1 : shot === nextShot ? 0.2 : 0;
+      const target = litShots.includes(shot) ? 1 : 0.2;
       marker.level += (target - marker.level) * Math.min(1, dt * 12);
       const pulse = target === 1 ? 0.5 + 0.5 * Math.sin(this.time * 8) : 0;
       marker.material.emissiveIntensity = marker.level * (2.2 + pulse * 2);

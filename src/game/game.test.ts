@@ -268,6 +268,7 @@ describe("Game", () => {
 
     it("当てると250点", () => {
       const game = newGame();
+      game.litShots = [];
       hitPiggy(game);
       expect(game.score).toBe(250);
     });
@@ -281,6 +282,7 @@ describe("Game", () => {
 
     it("5回当てると割れてボーナスが入る", () => {
       const game = newGame();
+      game.litShots = [];
       for (let i = 0; i < 5; i++) hitPiggy(game);
       expect(game.score).toBe(250 * 5 + 7500);
     });
@@ -1327,9 +1329,9 @@ describe("Game", () => {
       return game.score - before;
     };
 
-    it("ランプとターゲットが光り、次は貯金箱が光る状態で始まる", () => {
+    it("狙いやすい組からターゲット、難しい組から貯金箱が光った状態で始まる", () => {
       const game = newGame();
-      expect([game.litShots, game.nextShot]).toEqual([["ramp", "target"], "piggy"]);
+      expect(game.litShots).toEqual(["target", "piggy"]);
     });
 
     it("光っているターゲットに当てると2000点上乗せされる", () => {
@@ -1342,17 +1344,41 @@ describe("Game", () => {
       expect(pointsOf(game, () => hitBelly(game))).toBe(30);
     });
 
-    it("光っているショットに当てると、その光が消えて次のショットが光る", () => {
+    it("光っているターゲットに当てると、光は同じ組のランプに移る", () => {
       const game = newGame();
       hitTarget(game, 0);
-      expect([game.litShots, game.nextShot]).toEqual([["ramp", "piggy"], "belly"]);
+      expect(game.litShots).toEqual(["piggy", "ramp"]);
+    });
+
+    it("光っているランプに当てると、光はターゲットに戻る", () => {
+      const game = newGame();
+      hitTarget(game, 0);
+      completeRamps(game, 1);
+      expect(game.litShots).toEqual(["piggy", "target"]);
+    });
+
+    it("光っている貯金箱に当てると、光は同じ組のお腹に移る", () => {
+      const game = newGame();
+      hitPiggy(game);
+      expect(game.litShots).toEqual(["target", "belly"]);
     });
 
     it("難しいショットは上乗せが大きい", () => {
       const game = newGame();
-      hitTarget(game, 0);
-      game.shotLevel = 1;
       expect(pointsOf(game, () => hitPiggy(game))).toBe(250 + 4000);
+    });
+
+    it("追加で光らせると、狙いやすい組から先に両方光る", () => {
+      const game = newGame();
+      game.lightShot();
+      expect(game.litShots).toEqual(["target", "piggy", "ramp"]);
+    });
+
+    it("追加で光ったショットに当てると、同じ組のもう片方が光ったまま残る", () => {
+      const game = newGame();
+      game.lightShot();
+      hitTarget(game, 0);
+      expect(game.litShots).toEqual(["piggy", "ramp"]);
     });
 
     it("同じボールで光ったショットを続けて当てるほど上乗せが増える", () => {
@@ -1378,7 +1404,7 @@ describe("Game", () => {
       const game = newGame();
       hitTarget(game, 0);
       game.restart();
-      expect([game.litShots, game.nextShot]).toEqual([["ramp", "target"], "piggy"]);
+      expect(game.litShots).toEqual(["target", "piggy"]);
     });
 
     it("上乗せはそのショットの点としておまじないが掛かる", () => {
