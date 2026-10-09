@@ -1,7 +1,7 @@
 import { BloomEffect, EffectComposer, EffectPass, RenderPass, ToneMappingEffect, ToneMappingMode, VignetteEffect } from "postprocessing";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { type Game, type GameEvent, RAMPS_FOR_EXTRA_BALL, RAMPS_FOR_MULTIBALL } from "../game/game";
+import { type Game, type GameEvent, RAMPS_FOR_EXTRA_BALL, RAMPS_FOR_MULTIBALL, SHOT_ORDER, type Shot } from "../game/game";
 import { type Side, TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
 import type { Ball, Flipper, SegmentDef } from "../physics/world";
 import { LAYER_RAMP } from "../physics/world";
@@ -23,6 +23,12 @@ interface BallView {
   dirt: number;
   trail: Trail;
   z: number;
+}
+
+interface ShotMarker {
+  mesh: THREE.Mesh;
+  material: THREE.MeshStandardMaterial;
+  level: number;
 }
 
 interface Glow {
@@ -68,6 +74,7 @@ export class TableRenderer {
   private readonly plunger: THREE.Mesh;
   private readonly saveLight: THREE.MeshStandardMaterial;
   private readonly kickbackLights: Record<Side, THREE.MeshStandardMaterial>;
+  private readonly shotMarkers: Record<Shot, ShotMarker>;
   private readonly sparks = new Sparks();
   private readonly shake = new Shake();
   private readonly ramp: RampView;
@@ -116,6 +123,7 @@ export class TableRenderer {
     this.mouth = createMouth(TABLE_WIDTH / 2 - 2, 2, 6);
     this.scene.add(this.mouth.object);
     this.kickbackLights = { left: this.addKickbackLight("left"), right: this.addKickbackLight("right") };
+    this.shotMarkers = this.addShotMarkers();
     for (const flipper of game.world.flippers) this.addFlipper(flipper);
     this.ramp = new RampView(game.layout.ramp);
     this.ramp.addProgressLamps(RAMPS_FOR_MULTIBALL, RAMPS_FOR_EXTRA_BALL);
@@ -232,6 +240,10 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 10, 30, new THREE.Color(PALETTE.pigLips));
         this.shake.add(0.15);
         this.impact(event.speed);
+        break;
+      case "shot":
+        this.sparks.burst(event.x, event.y, 50 + event.speed * 15, 60, new THREE.Color(PALETTE.laneOn), 2.5);
+        this.shake.add(0.25);
         break;
       case "target":
         this.sparks.burst(event.x, event.y, 14, 35, new THREE.Color(PALETTE.tooth));
@@ -406,6 +418,7 @@ export class TableRenderer {
     this.mud.update(game.world.balls.some((b) => b.layer !== LAYER_RAMP && Math.hypot(b.x - mud.x, b.y - mud.y) < mud.r), this.time, dt);
     const piggy = game.world.movers[0];
     this.piggy.update(piggy.x, piggy.y, game.piggyHits, piggy.enabled, this.time, dt);
+    this.syncShotMarkers(dt);
     this.thirdEyeShown += ((game.multiplier >= 3 ? 1 : 0) - this.thirdEyeShown) * Math.min(1, dt * 10);
     for (const eye of this.thirdEyes) eye.shown = this.thirdEyeShown;
     const balls = game.world.balls;
@@ -613,6 +626,47 @@ export class TableRenderer {
     mesh.position.set((kickback.ax + kickback.bx) / 2, kickback.ay + 5, 0.02);
     this.scene.add(mesh);
     return material;
+  }
+
+  private addShotMarkers(): Record<Shot, ShotMarker> {
+    const { ramp, targets, piggy, bellies } = this.game.layout;
+    const [[rx, ry], [rx1, ry1]] = ramp.path;
+    const rampAngle = Math.atan2(ry1 - ry, rx1 - rx);
+    const targetY = (targets[0].ay + targets[targets.length - 1].by) / 2;
+    const bellyY = (bellies[0].ay + bellies[0].by) / 2;
+    const places: Record<Shot, [number, number, number]> = {
+      ramp: [rx - Math.cos(rampAngle) * 5, ry - Math.sin(rampAngle) * 5, rampAngle],
+      target: [targets[0].ax + 5, targetY, Math.PI],
+      piggy: [(piggy.ax + piggy.bx) / 2, piggy.y - 5, Math.PI / 2],
+      belly: [bellies[0].ax - 7, bellyY - 4, Math.atan2(4, 7)],
+    };
+    const geometry = new THREE.ShapeGeometry(
+      new THREE.Shape([new THREE.Vector2(2.4, 0), new THREE.Vector2(-1.5, 2), new THREE.Vector2(-0.6, 0), new THREE.Vector2(-1.5, -2)]),
+    );
+    const markers = {} as Record<Shot, ShotMarker>;
+    for (const shot of SHOT_ORDER) {
+      const [x, y, angle] = places[shot];
+      const material = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.laneOn, emissiveIntensity: 0, transparent: true });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, y, 0.03);
+      mesh.rotation.z = angle;
+      this.scene.add(mesh);
+      markers[shot] = { mesh, material, level: 0 };
+    }
+    return markers;
+  }
+
+  private syncShotMarkers(dt: number): void {
+    const { litShots, nextShot } = this.game;
+    for (const shot of SHOT_ORDER) {
+      const marker = this.shotMarkers[shot];
+      const target = litShots.includes(shot) ? 1 : shot === nextShot ? 0.2 : 0;
+      marker.level += (target - marker.level) * Math.min(1, dt * 12);
+      const pulse = target === 1 ? 0.5 + 0.5 * Math.sin(this.time * 8) : 0;
+      marker.material.emissiveIntensity = marker.level * (2.2 + pulse * 2);
+      marker.material.opacity = Math.min(1, 0.15 + marker.level);
+      marker.mesh.scale.setScalar(0.8 + marker.level * 0.2 + pulse * 0.12 * marker.level);
+    }
   }
 
   private addSaveLight(): THREE.MeshStandardMaterial {
