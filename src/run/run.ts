@@ -53,6 +53,7 @@ export interface RunData {
   lives?: number;
   retrying?: boolean;
   charms: string[];
+  counts?: Record<string, number>;
   curse: string | null;
   usedBossCurses: string[];
   shop: Omit<Shop, "kept"> & { kept?: string | null };
@@ -71,6 +72,8 @@ export class Run {
   shop: Shop = { offers: [], rerollCost: 1, kept: null };
   lastReward = 0;
   lastOverkill = 0;
+  private counts: Record<string, number> = {};
+  private stageModifiers: Modifier[] = [];
   private curseId: string | null = null;
   private usedBossCurses: string[] = [];
   private readonly rng: Rng;
@@ -92,14 +95,20 @@ export class Run {
   }
 
   stageRules(): Partial<GameRules> {
-    const modifiers = this.charms.map((id) => toModifier(id, CHARMS[id].effect));
+    const modifiers = this.charms.map((id) => toModifier(id, { ...CHARMS[id].effect, count: this.growth(id) }));
+    this.stageModifiers = [...modifiers];
     const curse = this.activeCurse;
     if (curse) modifiers.push(toModifier(curse.id, curse.effect));
     return { balls: BALLS_PER_STAGE, target: this.stageDef.target, modifiers };
   }
 
+  growth(id: string): number {
+    return this.counts[id] ?? 0;
+  }
+
   finishStage(result: StageResult): void {
     if (this.phase !== "stage") return;
+    for (const modifier of this.stageModifiers) if (this.charms.includes(modifier.id)) this.counts[modifier.id] = modifier.count ?? 0;
     this.retrying = !result.cleared;
     if (!result.cleared) {
       this.lives--;
@@ -143,6 +152,7 @@ export class Run {
     const index = this.charms.indexOf(id);
     if (index < 0) return;
     this.charms.splice(index, 1);
+    delete this.counts[id];
     this.truffles += Math.floor(CHARMS[id].price / 2);
   }
 
@@ -168,6 +178,7 @@ export class Run {
       lives: this.lives,
       retrying: this.retrying,
       charms: [...this.charms],
+      counts: { ...this.counts },
       curse: this.curseId,
       usedBossCurses: [...this.usedBossCurses],
       shop: { ...this.shop, offers: [...this.shop.offers] },
@@ -183,6 +194,7 @@ export class Run {
     run.lives = data.lives ?? LIVES;
     run.retrying = data.retrying ?? false;
     run.charms = data.charms.filter((id) => id in CHARMS);
+    run.counts = { ...data.counts };
     run.curseId = data.curse && data.curse in CURSES ? data.curse : null;
     run.usedBossCurses = [...data.usedBossCurses];
     const kept = data.shop.kept && data.shop.kept in CHARMS ? data.shop.kept : null;

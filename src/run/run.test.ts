@@ -268,6 +268,51 @@ describe("ラン", () => {
     });
   });
 
+  describe("育つおまじない", () => {
+    const growDuringStage = (run: Run, id: string, count: number) => {
+      const modifier = run.stageRules().modifiers?.find((m) => m.id === id);
+      modifier!.count = count;
+    };
+
+    const countOf = (run: Run, id: string) => run.stageRules().modifiers?.find((m) => m.id === id)?.count;
+
+    it("ステージで育った分を、次のステージに持ち越す", () => {
+      const run = new Run(1);
+      run.charms.push("big-eater");
+      growDuringStage(run, "big-eater", 4);
+      clearStage(run);
+      run.nextStage();
+      expect(countOf(run, "big-eater")).toBe(4);
+    });
+
+    it("届かなかったステージで育った分も持ち越す", () => {
+      const run = new Run(1);
+      run.charms.push("big-eater");
+      growDuringStage(run, "big-eater", 2);
+      failStage(run);
+      run.nextStage();
+      expect(countOf(run, "big-eater")).toBe(2);
+    });
+
+    it("保存して復元しても育ち具合は残る", () => {
+      const run = new Run(1);
+      run.charms.push("big-eater");
+      growDuringStage(run, "big-eater", 3);
+      clearStage(run);
+      const restored = Run.fromJSON(JSON.parse(JSON.stringify(run.toJSON())));
+      expect(restored.growth("big-eater")).toBe(3);
+    });
+
+    it("売ると育ち具合はなくなる", () => {
+      const run = new Run(1);
+      run.charms.push("big-eater");
+      growDuringStage(run, "big-eater", 3);
+      clearStage(run);
+      run.sell("big-eater");
+      expect(run.growth("big-eater")).toBe(0);
+    });
+  });
+
   it("保存して復元すると同じ状態に戻る", () => {
     const run = richRun(7);
     run.buy(0);
