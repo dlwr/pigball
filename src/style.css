@@ -479,6 +479,11 @@ body {
   text-shadow: 0 0 10px rgba(255, 224, 102, 0.4);
 }
 
+.shop-row.kept button[data-keep] {
+  border-color: var(--cool);
+  color: var(--cool);
+}
+
 .shop-row.rare {
   border-bottom-color: rgba(255, 224, 102, 0.35);
 }
