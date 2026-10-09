@@ -1,7 +1,7 @@
 import { BloomEffect, EffectComposer, EffectPass, RenderPass, ToneMappingEffect, ToneMappingMode, VignetteEffect } from "postprocessing";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { type Game, type GameEvent, RAMPS_FOR_EXTRA_BALL, RAMPS_FOR_MULTIBALL, SHOTS, type Shot } from "../game/game";
+import { type Game, type GameEvent, RAMPS_FOR_EXTRA_BALL, RAMPS_FOR_MULTIBALL, type Shot } from "../game/game";
 import { type Side, TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
 import type { Ball, Flipper, SegmentDef } from "../physics/world";
 import { LAYER_RAMP } from "../physics/world";
@@ -26,6 +26,7 @@ interface BallView {
 }
 
 interface ShotMarker {
+  shot: Shot;
   mesh: THREE.Mesh;
   material: THREE.MeshStandardMaterial;
   level: number;
@@ -55,8 +56,10 @@ export class TableRenderer {
   private readonly targetMeshes: THREE.Mesh[] = [];
   private readonly eyes: GooglyEye[] = [];
   private readonly snouts: Snout[] = [];
-  private readonly rotor: RotorView;
+  private readonly rotors = new Map<string, RotorView>();
   private readonly navel: Navel;
+  private readonly stomachs = new Map<string, Navel>();
+  private readonly partEyes = new Map<string, GooglyEye>();
   private readonly piggy: PiggyBank;
   private readonly mud: MudPit;
   private frameDt = 0;
@@ -74,7 +77,7 @@ export class TableRenderer {
   private readonly plunger: THREE.Mesh;
   private readonly saveLight: THREE.MeshStandardMaterial;
   private readonly kickbackLights: Record<Side, THREE.MeshStandardMaterial>;
-  private readonly shotMarkers: Record<Shot, ShotMarker>;
+  private readonly shotMarkers: ShotMarker[];
   private readonly sparks = new Sparks();
   private readonly shake = new Shake();
   private readonly ramp: RampView;
@@ -114,7 +117,13 @@ export class TableRenderer {
     this.scene.add(this.mud.object);
     this.piggy = createPiggyBank(game.layout.piggy.r, 4);
     this.scene.add(this.piggy.object);
-    this.rotor = this.addRotor();
+    this.addRotors();
+    this.addPartEyes();
+    for (const stomach of game.layout.stomachs) {
+      const view = createNavel(stomach.x, stomach.y, stomach.r);
+      this.scene.add(view.object);
+      this.stomachs.set(stomach.id, view);
+    }
     this.addTargets();
     this.addLanes();
     [this.spinner, this.spinnerGlow] = this.addSpinner();
@@ -228,8 +237,23 @@ export class TableRenderer {
         this.sparks.burst(event.x, event.y, 8, 25, new THREE.Color(PALETTE.pigSkin));
         this.jiggleEyes(event.x, event.y, 12);
         break;
+      case "eye":
+        if (event.id) this.partEyes.get(event.id)?.jiggle(60);
+        this.sparks.burst(event.x, event.y, 12, 30, new THREE.Color(PALETTE.tooth));
+        this.jiggleEyes(event.x, event.y, 15);
+        this.impact(event.speed);
+        break;
+      case "stomachIn":
+        this.sparks.burst(event.x, event.y, 16, 20, new THREE.Color(PALETTE.pigSkin));
+        this.jiggleEyes(event.x, event.y, 20);
+        break;
+      case "stomachOut":
+        if (event.id) this.stomachs.get(event.id)?.spit();
+        this.sparks.burst(event.x, event.y, 24, 45, new THREE.Color(PALETTE.tongue));
+        this.shake.add(0.2);
+        break;
       case "rotor":
-        this.rotor.poke(Math.min(12, event.speed / 12));
+        if (event.id) this.rotors.get(event.id)?.poke(Math.min(12, event.speed / 12));
         this.sparks.burst(event.x, event.y, 6, 18, new THREE.Color(PALETTE.pigSkin));
         this.jiggleEyes(event.x, event.y, 15);
         this.impact(event.speed);
@@ -397,8 +421,7 @@ export class TableRenderer {
   }
 
   private syncFlippers(alpha: number): void {
-    const rotor = this.game.world.rotors[0];
-    if (rotor) this.rotor.update(rotor.prevAngle + (rotor.angle - rotor.prevAngle) * alpha, this.frameDt);
+    for (const rotor of this.game.world.rotors) this.rotors.get(rotor.id)?.update(rotor.prevAngle + (rotor.angle - rotor.prevAngle) * alpha, this.frameDt);
     for (const [flipper, mesh] of this.flipperMeshes) {
       mesh.rotation.z = flipper.prevAngle + (flipper.angle - flipper.prevAngle) * alpha;
     }
@@ -414,6 +437,7 @@ export class TableRenderer {
     }
     for (const snout of this.snouts) snout.setLevel(game.multiplier, this.time, dt);
     this.navel.update(game.holdingInNavel, this.time, dt);
+    for (const [id, stomach] of this.stomachs) stomach.update(game.isHolding(id), this.time, dt);
     const { mud } = game.layout;
     this.mud.update(game.world.balls.some((b) => b.layer !== LAYER_RAMP && Math.hypot(b.x - mud.x, b.y - mud.y) < mud.r), this.time, dt);
     const piggy = game.world.movers[0];
@@ -541,14 +565,19 @@ export class TableRenderer {
     }
   }
 
-  private addRotor(): RotorView {
-    const { rotor } = this.game.layout;
-    const view = createRotor(rotor.arms, rotor.armLength, rotor.armRadius);
-    view.object.position.set(rotor.x, rotor.y, 1);
-    this.scene.add(view.object);
-    const eye = this.addEye(rotor.x, rotor.y, 0.75);
-    eye.object.position.z = 2.3;
-    return view;
+  private addRotors(): void {
+    for (const rotor of this.game.layout.rotors) {
+      const view = createRotor(rotor.arms, rotor.armLength, rotor.armRadius);
+      view.object.position.set(rotor.x, rotor.y, 1);
+      this.scene.add(view.object);
+      const eye = this.addEye(rotor.x, rotor.y, 0.75);
+      eye.object.position.z = 2.3;
+      this.rotors.set(rotor.id, view);
+    }
+  }
+
+  private addPartEyes(): void {
+    for (const eye of this.game.layout.eyes) this.partEyes.set(eye.id, this.addEye(eye.x, eye.y, eye.r / 1.1));
   }
 
   private addEye(x: number, y: number, size: number): GooglyEye {
@@ -628,39 +657,37 @@ export class TableRenderer {
     return material;
   }
 
-  private addShotMarkers(): Record<Shot, ShotMarker> {
-    const { ramp, targets, piggy, bellies } = this.game.layout;
+  private addShotMarkers(): ShotMarker[] {
+    const { ramp, targets, piggy, bellies, eyes, stomachs } = this.game.layout;
     const [[rx, ry], [rx1, ry1]] = ramp.path;
     const rampAngle = Math.atan2(ry1 - ry, rx1 - rx);
     const targetY = (targets[0].ay + targets[targets.length - 1].by) / 2;
     const bellyY = (bellies[0].ay + bellies[0].by) / 2;
-    const places: Record<Shot, [number, number, number]> = {
-      ramp: [rx - Math.cos(rampAngle) * 5, ry - Math.sin(rampAngle) * 5, rampAngle],
-      target: [targets[0].ax + 5, targetY, Math.PI],
-      piggy: [(piggy.ax + piggy.bx) / 2, piggy.y - 5, Math.PI / 2],
-      belly: [bellies[0].ax - 7, bellyY - 4, Math.atan2(4, 7)],
-    };
+    const places: [Shot, number, number, number][] = [
+      ["ramp", rx - Math.cos(rampAngle) * 5, ry - Math.sin(rampAngle) * 5, rampAngle],
+      ["target", targets[0].ax + 5, targetY, Math.PI],
+      ["piggy", (piggy.ax + piggy.bx) / 2, piggy.y - 5, Math.PI / 2],
+      ["belly", bellies[0].ax - 7, bellyY - 4, Math.atan2(4, 7)],
+      ...eyes.map(({ x, y, r }): [Shot, number, number, number] => ["eye", x, y - r - 3, Math.PI / 2]),
+      ...stomachs.map(({ x, y, r }): [Shot, number, number, number] => ["stomach", x, y - r - 3, Math.PI / 2]),
+    ];
     const geometry = new THREE.ShapeGeometry(
       new THREE.Shape([new THREE.Vector2(2.4, 0), new THREE.Vector2(-1.5, 2), new THREE.Vector2(-0.6, 0), new THREE.Vector2(-1.5, -2)]),
     );
-    const markers = {} as Record<Shot, ShotMarker>;
-    for (const shot of SHOTS) {
-      const [x, y, angle] = places[shot];
+    return places.map(([shot, x, y, angle]) => {
       const material = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: PALETTE.laneOn, emissiveIntensity: 0, transparent: true });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(x, y, 0.03);
       mesh.rotation.z = angle;
       this.scene.add(mesh);
-      markers[shot] = { mesh, material, level: 0 };
-    }
-    return markers;
+      return { shot, mesh, material, level: 0 };
+    });
   }
 
   private syncShotMarkers(dt: number): void {
     const { litShots } = this.game;
-    for (const shot of SHOTS) {
-      const marker = this.shotMarkers[shot];
-      const target = litShots.includes(shot) ? 1 : 0.2;
+    for (const marker of this.shotMarkers) {
+      const target = litShots.includes(marker.shot) ? 1 : 0.2;
       marker.level += (target - marker.level) * Math.min(1, dt * 12);
       const pulse = target === 1 ? 0.5 + 0.5 * Math.sin(this.time * 8) : 0;
       marker.material.emissiveIntensity = marker.level * (2.2 + pulse * 2);
