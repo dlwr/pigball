@@ -111,6 +111,10 @@ const settleStage = (dt: number) => {
     screens.runEnd(current, score, showMenu);
     return;
   }
+  if (current.retrying) {
+    screens.stageFailed(current, showShop);
+    return;
+  }
   screens.stageClear(current, () => (current.phase === "won" ? screens.runEnd(current, score, showMenu) : showShop()));
 };
 

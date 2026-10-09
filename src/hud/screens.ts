@@ -1,8 +1,10 @@
 import { CHARMS } from "../run/charms";
-import { MAX_CHARMS, type Run, STAGES } from "../run/run";
+import type { CurseDef } from "../run/curses";
+import { LIVES, MAX_CHARMS, type Run, STAGES } from "../run/run";
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
 const format = (n: number) => Math.round(n).toLocaleString("en-US");
+const hearts = (lives: number) => `${"♥".repeat(lives)}${"♡".repeat(LIVES - lives)}`;
 const escape = (text: string) => text.replace(/[&<>"]/g, (c) => `&${{ "&": "amp", "<": "lt", ">": "gt", '"': "quot" }[c]};`);
 
 interface Action {
@@ -49,18 +51,18 @@ export class Screens {
     actions.push({ label: "フリープレイ", run: options.onFree });
     this.show(
       `<h1 class="screen-title">PIGBALL</h1>
-       <p class="screen-lead">8つの台を、ボール2個ずつで乗り越える。<br />おまじないを集めて目標スコアを超えろ。</p>`,
+       <p class="screen-lead">8つの台を、ボール2個ずつで乗り越える。<br />おまじないを集めて目標スコアを超えろ。命は3つ。</p>`,
       actions,
     );
   }
 
   stageIntro(run: Run, onStart: () => void): void {
     const stage = run.stageDef;
-    const curse = run.curse;
     this.show(
-      `<div class="screen-kicker">STAGE ${run.stage + 1} / ${STAGES.length}${stage.boss ? " · BOSS" : ""}</div>
+      `<div class="screen-kicker">STAGE ${run.stage + 1} / ${STAGES.length}${stage.boss ? " · BOSS" : ""}${run.retrying ? " · やり直し" : ""}</div>
        <div class="screen-goal"><span>目標</span>${format(stage.target)}</div>
-       ${curse ? `<div class="screen-curse${run.activeCurse ? "" : " warded"}"><strong>${escape(curse.name)}</strong>${escape(curse.description)}${run.activeCurse ? "" : "<em>豚の神様が打ち消している</em>"}</div>` : `<p class="screen-lead">呪いなし</p>`}
+       ${this.curseBlock(run.curse, !run.activeCurse)}
+       <p class="screen-lead">命 ${hearts(run.lives)}</p>
        ${this.charmList(run)}`,
       [{ label: isTouch() ? "タップではじめる" : "Space ではじめる", run: onStart, primary: true }],
     );
@@ -76,14 +78,26 @@ export class Screens {
     );
   }
 
+  stageFailed(run: Run, onNext: () => void): void {
+    this.show(
+      `<div class="screen-kicker">STAGE ${run.stage + 1} 失敗</div>
+       <div class="screen-goal"><span>命</span>${hearts(run.lives)}</div>
+       <p class="screen-lead">命を1つ失った。ショップで立て直して、もう一度挑む。</p>`,
+      [{ label: "ショップへ", run: onNext, primary: true }],
+    );
+  }
+
   shop(run: Run, onChange: () => void, onNext: () => void): void {
     const full = run.charms.length >= MAX_CHARMS;
+    const nextStage = run.retrying ? run.stage : run.stage + 1;
     const offers = run.shop.offers
       .map((id, i) => {
         const charm = CHARMS[id];
         const disabled = full || run.truffles < charm.price;
-        return `<li class="shop-row${charm.rare ? " rare" : ""}">
+        const kept = run.shop.kept === id;
+        return `<li class="shop-row${charm.rare ? " rare" : ""}${kept ? " kept" : ""}">
           <div><strong>${charm.rare ? "レア · " : ""}${escape(charm.name)}</strong><span>${escape(charm.description)}</span></div>
+          <button data-keep="${i}" aria-pressed="${kept}">${kept ? "キープ中" : "キープ"}</button>
           <button data-buy="${i}" ${disabled ? "disabled" : ""}>${charm.price} で買う</button>
         </li>`;
       })
@@ -98,8 +112,9 @@ export class Screens {
       })
       .join("");
     this.show(
-      `<div class="screen-kicker">SHOP · 次は STAGE ${run.stage + 2}</div>
+      `<div class="screen-kicker">SHOP · 次は STAGE ${nextStage + 1}${STAGES[nextStage].boss ? " · BOSS" : ""}</div>
        <div class="screen-goal"><span>トリュフ</span>${run.truffles}</div>
+       ${this.curseBlock(run.curse, !run.activeCurse)}
        <ul class="shop-list">${offers || `<li class="shop-empty">売り切れ</li>`}</ul>
        <div class="screen-sub">おまじない ${run.charms.length} / ${MAX_CHARMS}</div>
        <ul class="shop-list">${owned || `<li class="shop-empty">まだ持っていない</li>`}</ul>`,
@@ -114,6 +129,12 @@ export class Screens {
         onChange();
       }),
     );
+    this.root.querySelectorAll<HTMLButtonElement>("[data-keep]").forEach((button) =>
+      button.addEventListener("click", () => {
+        run.keep(Number(button.dataset.keep));
+        onChange();
+      }),
+    );
     this.root.querySelectorAll<HTMLButtonElement>("[data-sell]").forEach((button) =>
       button.addEventListener("click", () => {
         run.sell(button.dataset.sell!);
@@ -125,12 +146,17 @@ export class Screens {
   runEnd(run: Run, score: number, onMenu: () => void): void {
     const won = run.phase === "won";
     this.show(
-      `<div class="screen-kicker">${won ? "RUN CLEAR" : `STAGE ${run.stage + 1} で力尽きた`}</div>
+      `<div class="screen-kicker">${won ? "RUN CLEAR" : `STAGE ${run.stage + 1} で命が尽きた`}</div>
        <div class="screen-goal"><span>${won ? "おめでとう" : "最後のスコア"}</span>${won ? `${STAGES.length} / ${STAGES.length}` : format(score)}</div>
        ${won ? "" : `<p class="screen-lead">目標 ${format(run.stageDef.target)}</p>`}
        ${this.charmList(run)}`,
       [{ label: "メニューへ", run: onMenu, primary: true }],
     );
+  }
+
+  private curseBlock(curse: CurseDef | null, warded: boolean): string {
+    if (!curse) return `<p class="screen-lead">呪いなし</p>`;
+    return `<div class="screen-curse${warded ? " warded" : ""}"><strong>${escape(curse.name)}</strong>${escape(curse.description)}${warded ? "<em>豚の神様が打ち消している</em>" : ""}</div>`;
   }
 
   private charmList(run: Run): string {
