@@ -395,7 +395,7 @@ describe("Game", () => {
 
   describe("風車", () => {
     const hitRotor = (game: Game) => {
-      const { rotor } = game.layout;
+      const [rotor] = game.layout.rotors;
       place(game, rotor.x + 2.5, rotor.y - 6, 0, 120);
       run(game, 0.1);
     };
@@ -1410,6 +1410,111 @@ describe("Game", () => {
     it("上乗せはそのショットの点としておまじないが掛かる", () => {
       const game = gameWith({ modifiers: [{ id: "teeth", score: (kind, points) => (kind === "target" ? points * 3 : points) }] });
       expect(pointsOf(game, () => hitTarget(game, 0))).toBe((500 + 2000) * 3);
+    });
+  });
+  describe("差込口の部位", () => {
+    const withParts = (parts: GameRules["parts"]) => gameWith({ parts });
+
+    const hitEye = (game: Game, index = 0) => {
+      const eye = game.layout.eyes[index];
+      place(game, eye.x, eye.y - eye.r - ball(game).r - 2, 0, 80);
+      run(game, 0.06);
+      place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+      run(game, 0.05);
+    };
+
+    const dropIntoStomach = (game: Game) => {
+      const stomach = game.layout.stomachs[0];
+      place(game, stomach.x, stomach.y + 3, 0, -20);
+      run(game, 0.3);
+    };
+
+    it("何も入れなければ、中央に風車があるいつもの台になる", () => {
+      const game = newGame();
+      expect([game.world.rotors.length, game.layout.eyes.length, game.layout.stomachs.length, game.layout.bumpers.length]).toEqual([1, 0, 0, 3]);
+    });
+
+    it("中央に別の部位を入れると風車はなくなる", () => {
+      const game = withParts({ center: "eye" });
+      expect([game.world.rotors.length, game.layout.eyes.length]).toEqual([0, 1]);
+    });
+
+    it("鼻を入れるとバンパーが増える", () => {
+      const game = withParts({ left: "snout" });
+      expect(game.layout.bumpers).toHaveLength(4);
+    });
+
+    it("目玉に当てると750点", () => {
+      const game = withParts({ left: "eye" });
+      game.litShots = [];
+      hitEye(game);
+      expect(game.score).toBe(750);
+    });
+
+    it("胃袋に入ると止まって1500点", () => {
+      const game = withParts({ right: "stomach" });
+      game.litShots = [];
+      dropIntoStomach(game);
+      expect([ball(game).frozen, game.score]).toEqual([true, 1500]);
+    });
+
+    it("胃袋は少しすると吐き出す", () => {
+      const game = withParts({ right: "stomach" });
+      dropIntoStomach(game);
+      run(game, 1.5);
+      const stomach = game.layout.stomachs[0];
+      expect(Math.hypot(ball(game).x - stomach.x, ball(game).y - stomach.y)).toBeGreaterThan(4);
+    });
+
+    it("へそと胃袋は別々にボールを捕まえられる", () => {
+      const game = withParts({ right: "stomach" });
+      dropIntoStomach(game);
+      const { navel } = game.layout;
+      const second = game.world.spawnBall(navel.x, navel.y + 3);
+      second.vy = -20;
+      run(game, 0.3);
+      expect([ball(game).frozen, second.frozen]).toEqual([true, true]);
+    });
+
+    it("目玉は狙いやすい組に入り、ランプのあとに光る", () => {
+      const game = withParts({ left: "eye" });
+      game.litShots = ["ramp", "piggy"];
+      completeRamps(game, 1);
+      expect(game.litShots).toEqual(["piggy", "eye"]);
+    });
+
+    it("光った目玉に当てると上乗せが入る", () => {
+      const game = withParts({ left: "eye" });
+      game.litShots = ["eye"];
+      hitEye(game);
+      expect(game.score).toBe(750 + 2000);
+    });
+
+    it("左右どちらの目玉に当てても目玉のショットになる", () => {
+      const game = withParts({ left: "eye", right: "eye" });
+      game.litShots = ["eye"];
+      hitEye(game, 1);
+      expect(game.drainEvents().filter((e) => e.kind === "shot").map((e) => e.id)).toEqual(["eye"]);
+    });
+
+    it("左上の目玉は、左フリッパーから打点に幅を持って狙える", () => {
+      const reached = [15.5, 16, 16.5, 17, 17.5, 18, 18.5, 19].filter((trigger) => {
+        const game = withParts({ left: "eye" });
+        place(game, 6, 30);
+        let flipped = false;
+        for (let t = 0; t < 2; t += DT) {
+          if (!flipped && ball(game).x >= trigger && ball(game).y < 16) {
+            game.setFlipper("left", true);
+            flipped = true;
+          }
+          game.step(DT);
+          const first = game.drainEvents().find((e) => flipped && ["eye", "bumper", "sling", "target", "rampEnter", "belly"].includes(e.kind));
+          if (first) return first.kind === "eye";
+          if (!game.world.balls.length) return false;
+        }
+        return false;
+      });
+      expect(reached.length).toBeGreaterThanOrEqual(3);
     });
   });
 });

@@ -7,6 +7,23 @@ export const BALL_RADIUS = 1.35;
 export const DRAIN_Y = -3;
 export const SHOOTER_X = 48;
 
+export type SocketId = "center" | "left" | "right";
+
+export type PartId = "rotor" | "snout" | "eye" | "stomach";
+
+export type TableParts = Partial<Record<SocketId, PartId>>;
+
+export const SOCKET_IDS: SocketId[] = ["center", "left", "right"];
+
+export const SOCKETS: Record<SocketId, Point> = { center: [23, 36], left: [18, 48], right: [28, 48] };
+
+export const DEFAULT_PARTS: TableParts = { center: "rotor" };
+
+export interface Saucer extends HoleDef {
+  ejectX: number;
+  ejectY: number;
+}
+
 export interface TableLayout {
   walls: SegmentDef[];
   slings: SegmentDef[];
@@ -18,9 +35,11 @@ export interface TableLayout {
   spinner: SensorDef;
   shooterExit: SensorDef;
   kickbacks: Record<Side, SensorDef>;
-  rotor: RotorDef;
+  rotors: RotorDef[];
+  eyes: BumperDef[];
+  stomachs: Saucer[];
   bellies: SegmentDef[];
-  navel: HoleDef & { ejectX: number; ejectY: number };
+  navel: Saucer;
   piggy: MoverDef;
   mud: MudDef;
   ramp: Ramp;
@@ -59,7 +78,28 @@ const leftInlane: Point[] = [[4, 32], [4, 20], [15, 12.9]];
 const leftSlingBack: Point[] = [[12.3, 19.5], [7.8, 22.5], [7.8, 29]];
 const leftSlingFace: Point[] = [[7.8, 29], [12.3, 19.5]];
 
-export const createLayout = (): TableLayout => ({
+const EYE_RADIUS = 2.2;
+
+const installPart = (layout: TableLayout, socket: SocketId, part: PartId): void => {
+  const [x, y] = SOCKETS[socket];
+  if (part === "rotor") layout.rotors.push({ ...ROTOR, id: `rotor-${socket}`, x, y });
+  if (part === "snout") layout.bumpers.push({ id: `bumper-${socket}`, x, y, r: 2.6, kick: 110 });
+  if (part === "eye") layout.eyes.push({ id: `eye-${socket}`, x, y, r: EYE_RADIUS, kick: 0 });
+  if (part === "stomach") layout.stomachs.push({ id: `stomach-${socket}`, x, y, r: 1.4, ejectX: socket === "right" ? -0.35 : 0.35, ejectY: -0.94 });
+};
+
+const ROTOR: Omit<RotorDef, "id" | "x" | "y"> = { arms: 4, armLength: 2.8, armRadius: 0.6, inertia: 12, damping: 0.8, restitution: 0.25 };
+
+export const createLayout = (parts: TableParts = DEFAULT_PARTS): TableLayout => {
+  const layout = createBaseLayout();
+  for (const socket of SOCKET_IDS) {
+    const part = parts[socket];
+    if (part) installPart(layout, socket, part);
+  }
+  return layout;
+};
+
+const createBaseLayout = (): TableLayout => ({
   walls: [
     ...polyline("outer", [[0, -5], ...arc(25, 75, 25, Math.PI, 0, 28), [50, -5]]),
     ...polyline("shooter-wall", [[46, -5], [46, 80]]),
@@ -115,7 +155,9 @@ export const createLayout = (): TableLayout => ({
     { id: "belly-low", ax: PLAYFIELD_WIDTH - 0.25, ay: 60, bx: PLAYFIELD_WIDTH - 0.25, by: 69, kind: "belly" },
     { id: "belly-high", ax: PLAYFIELD_WIDTH - 0.25, ay: 71.5, bx: PLAYFIELD_WIDTH - 0.25, by: 78.5, kind: "belly" },
   ],
-  rotor: { id: "rotor", x: 23, y: 36, arms: 4, armLength: 2.8, armRadius: 0.6, inertia: 12, damping: 0.8, restitution: 0.25 },
+  rotors: [],
+  eyes: [],
+  stomachs: [],
   kickbacks: {
     left: { id: "kickback-left", ax: 0, ay: 10, bx: 4, by: 10 },
     right: { id: "kickback-right", ax: 42, ay: 10, bx: 46, by: 10 },
