@@ -59,10 +59,12 @@ export class Sfx {
         this.burst(3500, 0.35, 0.5, 1);
         this.arpeggio([1568, 2093, 2637, 3136, 2637, 3136], 0.04, "triangle", 0.18);
         break;
+      case "stomachIn":
       case "navelIn":
         this.tone("sine", 900, 180, 0.22, 0.35);
         this.burst(2200, 0.18, 0.2, 1.5);
         break;
+      case "stomachOut":
       case "navelOut":
         this.tone("square", 220, 520, 0.06, 0.25);
         this.burst(1600, 0.08, 0.45, 2);
@@ -81,6 +83,7 @@ export class Sfx {
         this.tone("square", 340, 170, 0.07, 0.3);
         this.burst(2600, 0.025, 0.35, 2);
         break;
+      case "eye":
       case "target":
         this.tone("triangle", 520, 260, 0.1, 0.5);
         this.burst(1200, 0.04, 0.4, 2);

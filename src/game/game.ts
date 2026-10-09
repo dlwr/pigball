@@ -1,6 +1,6 @@
 import type { PhysicsParams } from "../physics/params";
 import { type Ball, type Flipper, LAYER_FLOOR, type PhysicsEvent, type Segment, World, type WorldSnapshot } from "../physics/world";
-import { BALL_RADIUS, DRAIN_Y, PLAYFIELD_WIDTH, SHOOTER_X, type Side, type TableLayout, createLayout } from "./table";
+import { BALL_RADIUS, DEFAULT_PARTS, DRAIN_Y, PLAYFIELD_WIDTH, SHOOTER_X, type Saucer, type Side, type TableLayout, type TableParts, createLayout } from "./table";
 
 export interface ScoreStorage {
   load(): number;
@@ -20,6 +20,9 @@ export type GameEventKind =
   | "piggyBreak"
   | "piggyBack"
   | "navelOut"
+  | "eye"
+  | "stomachIn"
+  | "stomachOut"
   | "wall"
   | "flipper"
   | "target"
@@ -94,23 +97,16 @@ const AUTO_LAUNCH_Y = 10;
 const AUTO_LAUNCH_SPEED = 180;
 export const MAX_SHOT_LEVEL = 5;
 
-export type Shot = "ramp" | "target" | "piggy" | "belly";
+export type Shot = "ramp" | "target" | "piggy" | "belly" | "eye" | "stomach";
 
-const SHOT_PAIRS: [Shot, Shot][] = [
-  ["target", "ramp"],
-  ["piggy", "belly"],
-];
+const SHOT_POINTS: Record<Shot, number> = { ramp: 2000, target: 2000, piggy: 4000, belly: 4000, eye: 2000, stomach: 3000 };
 
-export const SHOTS: Shot[] = SHOT_PAIRS.flat();
-
-const firstLitShots = (): Shot[] => SHOT_PAIRS.map(([first]) => first);
-
-const partnerOf = (shot: Shot): Shot => {
-  const [a, b] = SHOT_PAIRS.find((pair) => pair.includes(shot))!;
-  return a === shot ? b : a;
-};
-
-const SHOT_POINTS: Record<Shot, number> = { ramp: 2000, target: 2000, piggy: 4000, belly: 4000 };
+interface SaucerState {
+  def: Saucer;
+  ball: Ball | null;
+  time: number;
+  cooldown: number;
+}
 
 const SCORES = {
   bumper: 100,
@@ -118,6 +114,8 @@ const SCORES = {
   rotor: 50,
   belly: 30,
   navel: 1000,
+  eye: 750,
+  stomach: 1500,
   piggy: 250,
   mud: 100,
   piggyBreak: 7500,
@@ -149,9 +147,10 @@ export interface GameRules {
   ballSaveSeconds: number;
   target: number | null;
   modifiers: Modifier[];
+  parts: TableParts;
 }
 
-const DEFAULT_RULES: GameRules = { balls: BALLS_PER_GAME, ballSaveSeconds: BALL_SAVE_SECONDS, target: null, modifiers: [] };
+const DEFAULT_RULES: GameRules = { balls: BALLS_PER_GAME, ballSaveSeconds: BALL_SAVE_SECONDS, target: null, modifiers: [], parts: DEFAULT_PARTS };
 
 const BONUS = {
   bumper: 50,
@@ -166,7 +165,7 @@ interface HistoryEntry {
   replayable: boolean;
 }
 
-const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target|rotor|belly|piggy)/.test(event.id);
+const isReplayable = (event: PhysicsEvent) => event.type === "contact" && !/^(bumper|sling|target|rotor|belly|piggy|eye)/.test(event.id);
 
 export interface GameStats {
   ramps: number;
@@ -179,7 +178,8 @@ const emptyStats = (): GameStats => ({ ramps: 0, banks: 0, jackpots: 0, skillSho
 
 export class Game {
   readonly world: World;
-  readonly layout: TableLayout = createLayout();
+  readonly layout: TableLayout;
+  readonly shotGroups: Shot[][];
   readonly rules: GameRules;
   state: GameState = "ready";
   score = 0;
@@ -198,7 +198,7 @@ export class Game {
   rampsTowardExtraBall = 0;
   kickbacksLit: Record<Side, boolean> = { left: true, right: false };
   multiplier = 1;
-  litShots: Shot[] = firstLitShots();
+  litShots: Shot[];
   shotLevel = 1;
   keepsShotLevel = false;
   litLanes = [false, false, false];
@@ -215,9 +215,7 @@ export class Game {
   private pendingLaunches = 0;
   private piggyRespawnTime = 0;
   private targetReached = false;
-  private navelBall: Ball | null = null;
-  private navelTime = 0;
-  private navelCooldown = 0;
+  private readonly saucers: SaucerState[];
   private autoLaunchTime = 0;
   private tiltMeter = 0;
   private targetResetTime = 0;
@@ -234,6 +232,11 @@ export class Game {
   ) {
     this.rules = { ...DEFAULT_RULES, ...rules };
     const { modifiers } = this.rules;
+    this.layout = createLayout(this.rules.parts);
+    const partShots: Shot[] = [...(this.layout.eyes.length > 0 ? ["eye" as const] : []), ...(this.layout.stomachs.length > 0 ? ["stomach" as const] : [])];
+    this.shotGroups = [["target", "ramp", ...partShots], ["piggy", "belly"]];
+    this.litShots = this.firstLitShots();
+    this.saucers = [this.layout.navel, ...this.layout.stomachs].map((def) => ({ def, ball: null, time: 0, cooldown: 0 }));
     this.ballsLeft = this.rules.balls;
     this.highScore = storage.load();
     for (const modifier of modifiers) modifier.layout?.(this.layout);
@@ -246,8 +249,9 @@ export class Game {
     world.addLayerGate(layout.ramp.exit);
     this.targets = layout.targets.map((def) => world.addSegment(def));
     for (const def of layout.bumpers) world.addBumper(def);
-    world.addRotor(layout.rotor);
-    world.addHole(layout.navel);
+    for (const def of layout.rotors) world.addRotor(def);
+    for (const def of layout.eyes) world.addBumper(def);
+    for (const { def } of this.saucers) world.addHole(def);
     world.addMover(layout.piggy);
     world.addMud(layout.mud);
     this.leftFlipper = world.addFlipper(layout.flippers.left);
@@ -333,9 +337,8 @@ export class Game {
     this.stats = emptyStats();
     this.newHighScore = false;
     this.inMultiball = false;
-    this.litShots = firstLitShots();
-    this.navelBall = null;
-    this.navelCooldown = 0;
+    this.litShots = this.firstLitShots();
+    for (const saucer of this.saucers) Object.assign(saucer, { ball: null, cooldown: 0 });
     this.piggyHits = 0;
     this.piggyRespawnTime = 0;
     this.world.movers[0].enabled = true;
@@ -365,8 +368,8 @@ export class Game {
     const events = this.world.drainEvents();
     this.record({ snapshot, dt, replayable: events.every(isReplayable) });
     for (const event of events) this.handle(event);
-    if (!this.navelBall) this.ballSaveTime = Math.max(0, this.ballSaveTime - dt);
-    this.stepNavel(dt);
+    if (!this.saucers.some((saucer) => saucer.ball)) this.ballSaveTime = Math.max(0, this.ballSaveTime - dt);
+    this.stepSaucers(dt);
     this.stepPiggy(dt);
     this.rampComboTime = Math.max(0, this.rampComboTime - dt);
     this.tiltMeter = Math.max(0, this.tiltMeter - TILT_DECAY * dt);
@@ -480,7 +483,10 @@ export class Game {
       if (id === "mud") {
         this.award("mud", SCORES.mud);
         this.emit("mud", x, y, speed);
-      } else this.captureInNavel(event.ball);
+      } else {
+        const saucer = this.saucers.find((s) => s.def.id === id);
+        if (saucer) this.capture(saucer, event.ball);
+      }
       return;
     }
     if (event.type === "sensor") {
@@ -510,7 +516,11 @@ export class Game {
       this.award("belly", SCORES.belly);
       this.emit("belly", x, y, speed, id);
       this.hitShot("belly", x, y);
-    } else if (id === "rotor") {
+    } else if (id.startsWith("eye")) {
+      this.award("eye", SCORES.eye);
+      this.emit("eye", x, y, speed, id);
+      this.hitShot("eye", x, y);
+    } else if (id.startsWith("rotor")) {
       this.award("rotor", SCORES.rotor);
       this.emit("rotor", x, y, speed, id);
     } else if (id.startsWith("sling")) {
@@ -554,31 +564,43 @@ export class Game {
   }
 
   get holdingInNavel(): boolean {
-    return this.navelBall !== null;
+    return this.saucers[0].ball !== null;
   }
 
-  private captureInNavel(ball: Ball): void {
-    if (this.navelBall || this.navelCooldown > 0) return;
-    const { navel } = this.layout;
-    this.navelBall = ball;
-    this.navelTime = NAVEL_HOLD_SECONDS;
-    Object.assign(ball, { x: navel.x, y: navel.y, prevX: navel.x, prevY: navel.y, vx: 0, vy: 0, frozen: true });
+  isHolding(id: string): boolean {
+    return this.saucers.some((saucer) => saucer.def.id === id && saucer.ball !== null);
+  }
+
+  private capture(saucer: SaucerState, ball: Ball): void {
+    if (saucer.ball || saucer.cooldown > 0 || ball.frozen) return;
+    const { def } = saucer;
+    saucer.ball = ball;
+    saucer.time = NAVEL_HOLD_SECONDS;
+    Object.assign(ball, { x: def.x, y: def.y, prevX: def.x, prevY: def.y, vx: 0, vy: 0, frozen: true });
     this.skillShotLit = false;
-    this.award("navel", SCORES.navel);
-    this.emit("navelIn", navel.x, navel.y, 1);
+    if (def === this.layout.navel) {
+      this.award("navel", SCORES.navel);
+      this.emit("navelIn", def.x, def.y, 1);
+      return;
+    }
+    this.award("stomach", SCORES.stomach);
+    this.emit("stomachIn", def.x, def.y, 1, def.id);
+    this.hitShot("stomach", def.x, def.y);
   }
 
-  private stepNavel(dt: number): void {
-    this.navelCooldown = Math.max(0, this.navelCooldown - dt);
-    const ball = this.navelBall;
-    if (!ball) return;
-    this.navelTime -= dt;
-    if (this.navelTime > 0) return;
-    const { navel } = this.layout;
-    Object.assign(ball, { frozen: false, vx: navel.ejectX * NAVEL_EJECT_SPEED, vy: navel.ejectY * NAVEL_EJECT_SPEED });
-    this.navelBall = null;
-    this.navelCooldown = NAVEL_RECAPTURE_SECONDS;
-    this.emit("navelOut", navel.x, navel.y, NAVEL_EJECT_SPEED);
+  private stepSaucers(dt: number): void {
+    for (const saucer of this.saucers) {
+      saucer.cooldown = Math.max(0, saucer.cooldown - dt);
+      const { ball, def } = saucer;
+      if (!ball) continue;
+      saucer.time -= dt;
+      if (saucer.time > 0) continue;
+      Object.assign(ball, { frozen: false, vx: def.ejectX * NAVEL_EJECT_SPEED, vy: def.ejectY * NAVEL_EJECT_SPEED });
+      saucer.ball = null;
+      saucer.cooldown = NAVEL_RECAPTURE_SECONDS;
+      if (def === this.layout.navel) this.emit("navelOut", def.x, def.y, NAVEL_EJECT_SPEED);
+      else this.emit("stomachOut", def.x, def.y, NAVEL_EJECT_SPEED, def.id);
+    }
   }
 
   private hitShot(shot: Shot, x: number, y: number): void {
@@ -588,14 +610,22 @@ export class Game {
     const level = this.shotLevel;
     this.shotLevel = Math.min(MAX_SHOT_LEVEL, this.shotLevel + 1);
     this.litShots = this.litShots.filter((s) => s !== shot);
-    const partner = partnerOf(shot);
-    if (!this.litShots.includes(partner)) this.litShots.push(partner);
+    const group = this.shotGroups.find((g) => g.includes(shot))!;
+    if (!group.some((s) => this.litShots.includes(s))) this.litShots.push(group[(group.indexOf(shot) + 1) % group.length]);
     this.emit("shot", x, y, level, shot);
   }
 
   lightShot(): void {
-    const unlit = SHOTS.find((shot) => !this.litShots.includes(shot));
+    const unlit = this.shots.find((shot) => !this.litShots.includes(shot));
     if (unlit) this.litShots.push(unlit);
+  }
+
+  get shots(): Shot[] {
+    return this.shotGroups.flat();
+  }
+
+  private firstLitShots(): Shot[] {
+    return this.shotGroups.map(([first]) => first);
   }
 
   private fireKickback(side: Side, ball: Ball): void {
