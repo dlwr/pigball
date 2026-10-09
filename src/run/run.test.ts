@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHARMS } from "./charms";
+import { PARTS, PART_IDS } from "./parts";
 import { Run, STAGES } from "./run";
 
 const clearStage = (run: Run, ballsLeft = 1, score = run.stageDef.target) => run.finishStage({ cleared: true, ballsLeft, score });
@@ -265,6 +266,63 @@ describe("ラン", () => {
 
     it("同じシードなら同じ品揃えになる", () => {
       expect(richRun(42).shop.offers).toEqual(richRun(42).shop.offers);
+    });
+  });
+
+  describe("部位", () => {
+    it("中央に風車だけが入った台から始まる", () => {
+      expect(new Run(1).stageRules().parts).toEqual({ center: "rotor" });
+    });
+
+    it("ショップには部位が1つ並ぶ", () => {
+      expect(PART_IDS).toContain(richRun().shop.part);
+    });
+
+    it("部位を買って差込口を選ぶと、次のステージの台に入る", () => {
+      const run = richRun();
+      const part = run.shop.part!;
+      run.buyPart("left");
+      run.nextStage();
+      expect(run.stageRules().parts).toEqual({ center: "rotor", left: part });
+    });
+
+    it("部位を買うとトリュフが減り、ショップからなくなる", () => {
+      const run = richRun();
+      const part = run.shop.part!;
+      run.buyPart("left");
+      expect([run.truffles, run.shop.part]).toEqual([100 - PARTS[part].price, null]);
+    });
+
+    it("埋まっている差込口に入れると、前の部位と入れ替わる", () => {
+      const run = richRun();
+      const part = run.shop.part!;
+      run.buyPart("center");
+      expect(run.parts.center).toBe(part);
+    });
+
+    it("トリュフが足りなければ入らない", () => {
+      const run = richRun();
+      run.truffles = 0;
+      run.buyPart("left");
+      expect(run.parts.left).toBeUndefined();
+    });
+
+    it("並べ直すと部位も並べ直される", () => {
+      const parts = new Set<string | null>();
+      const run = richRun();
+      for (let i = 0; i < 10; i++) {
+        run.truffles = 100;
+        run.reroll();
+        parts.add(run.shop.part);
+      }
+      expect(parts.size).toBeGreaterThan(1);
+    });
+
+    it("保存して復元しても台の部位は残る", () => {
+      const run = richRun();
+      const part = run.shop.part!;
+      run.buyPart("right");
+      expect(Run.fromJSON(JSON.parse(JSON.stringify(run.toJSON()))).parts.right).toBe(part);
     });
   });
 
