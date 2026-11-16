@@ -28,6 +28,12 @@ describe("ラン", () => {
     expect(STAGES.every((s, i) => i === 0 || s.target > STAGES[i - 1].target)).toBe(true);
   });
 
+  it("ボスの次のステージは、目標の上がり幅がボスのときより小さい", () => {
+    const rise = (i: number) => STAGES[i].target - STAGES[i - 1].target;
+    const afterBoss = STAGES.map((_, i) => i).filter((i) => i > 0 && STAGES[i - 1].boss);
+    expect(afterBoss.every((i) => rise(i) < rise(i - 1))).toBe(true);
+  });
+
   it("ステージのルールはボール2個と目標スコア", () => {
     const run = new Run(1);
     const rules = run.stageRules();
