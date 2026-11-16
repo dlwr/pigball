@@ -315,6 +315,15 @@ describe("Game", () => {
 
     const distanceFromNavel = (game: Game) => Math.hypot(ball(game).x - game.layout.navel.x, ball(game).y - game.layout.navel.y);
 
+    it("吐き出された直後にフリッパーを押しても、ボールは止まったままにならない", () => {
+      const game = newGame();
+      dropIntoNavel(game);
+      while (ball(game).frozen) game.step(DT);
+      game.setFlipper("left", true);
+      run(game, 0.5);
+      expect(ball(game).frozen).toBe(false);
+    });
+
     it("入ったボールはへそで止まる", () => {
       const game = newGame();
       dropIntoNavel(game);
@@ -1274,6 +1283,18 @@ describe("Game", () => {
         run(game, 0.05);
       }
       expect(game.world.movers[0].enabled).toBe(false);
+    });
+
+    it("貯金箱が戻った直後にフリッパーを押しても、貯金箱は消えない", () => {
+      const game = gameWith({ modifiers: [{ id: "hammer", start: (g) => (g.piggyHitsToBreak = 1) }] });
+      const piggy = game.world.movers[0];
+      place(game, piggy.x, piggy.y - piggy.r - ball(game).r - 2, 0, 80);
+      run(game, 0.06);
+      park(game);
+      while (!piggy.enabled) game.step(DT);
+      game.setFlipper("left", true);
+      run(game, 0.5);
+      expect(piggy.enabled).toBe(true);
     });
 
     it("ランプ1回の数え方を変える効果を付けられる", () => {
