@@ -237,6 +237,83 @@ describe("ラン", () => {
       expect(run.charms).toHaveLength(5);
     });
 
+    describe("枠を増やす", () => {
+      const fill = (run: Run) => {
+        for (let i = 0; i < 12; i++) {
+          if (run.shop.offers.length === 0) run.reroll();
+          run.buy(0);
+        }
+      };
+
+      it("トリュフ20で枠が1つ増える", () => {
+        const run = richRun();
+        run.buySlot();
+        expect([run.slots, run.truffles]).toEqual([6, 80]);
+      });
+
+      it("増やした枠の分だけ多く持てる", () => {
+        const run = richRun();
+        run.truffles = 1000;
+        run.buySlot();
+        fill(run);
+        expect(run.charms).toHaveLength(6);
+      });
+
+      it("トリュフが足りなければ増えない", () => {
+        const run = richRun();
+        run.truffles = 19;
+        run.buySlot();
+        expect(run.slots).toBe(5);
+      });
+
+      it("増やせるのは1回だけ", () => {
+        const run = richRun();
+        run.buySlot();
+        run.buySlot();
+        expect([run.slots, run.truffles]).toEqual([6, 80]);
+      });
+    });
+
+    describe("命を取り戻す", () => {
+      const hurtRun = () => {
+        const run = new Run(1);
+        failStage(run);
+        run.truffles = 100;
+        return run;
+      };
+
+      it("トリュフ15で命が1つ戻る", () => {
+        const run = hurtRun();
+        run.buyLife();
+        expect([run.lives, run.truffles]).toEqual([3, 85]);
+      });
+
+      it("買うたびに値段が15ずつ上がる", () => {
+        const run = hurtRun();
+        run.buyLife();
+        expect(run.lifePrice).toBe(30);
+      });
+
+      it("保存して復元しても上がった値段は残る", () => {
+        const run = hurtRun();
+        run.buyLife();
+        expect(Run.fromJSON(JSON.parse(JSON.stringify(run.toJSON()))).lifePrice).toBe(30);
+      });
+
+      it("命が減っていなければ買えない", () => {
+        const run = richRun();
+        run.buyLife();
+        expect([run.lives, run.truffles]).toEqual([3, 100]);
+      });
+
+      it("トリュフが足りなければ戻らない", () => {
+        const run = hurtRun();
+        run.truffles = 14;
+        run.buyLife();
+        expect(run.lives).toBe(2);
+      });
+    });
+
     it("持っているおまじないは並ばない", () => {
       const run = richRun();
       const offer = run.shop.offers[0];
@@ -358,6 +435,17 @@ describe("ラン", () => {
         parts.add(run.shop.part);
       }
       expect(parts.size).toBeGreaterThan(1);
+    });
+
+    it("保存して復元しても増やした枠は残る", () => {
+      const run = richRun();
+      run.buySlot();
+      expect(Run.fromJSON(JSON.parse(JSON.stringify(run.toJSON()))).slots).toBe(6);
+    });
+
+    it("枠の数がない古い保存データは5枠として読む", () => {
+      const { slots: _slots, ...old } = richRun().toJSON();
+      expect(Run.fromJSON(old).slots).toBe(5);
     });
 
     it("保存して復元しても台の部位は残る", () => {

@@ -2,7 +2,7 @@ import { CHARMS, GROWTH_PER_SHOT } from "../run/charms";
 import type { CurseDef } from "../run/curses";
 import type { SocketId } from "../game/table";
 import { PARTS } from "../run/parts";
-import { LIVES, MAX_CHARMS, type Run, STAGES } from "../run/run";
+import { LIVES, MAX_SLOTS, type Run, SLOT_PRICE, STAGES } from "../run/run";
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
 const format = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -129,7 +129,7 @@ export class Screens {
   }
 
   shop(run: Run, onChange: () => void, onNext: () => void): void {
-    const full = run.charms.length >= MAX_CHARMS;
+    const full = run.charms.length >= run.slots;
     const nextStage = run.retrying ? run.stage : run.stage + 1;
     const part = run.shop.part ? PARTS[run.shop.part] : null;
     const partOffer = part
@@ -159,6 +159,18 @@ export class Screens {
         </li>`;
       })
       .join("");
+    const extras = [
+      `<li class="shop-row">
+        <div><strong>命を1つ取り戻す</strong><span>命 ${hearts(run.lives)}</span></div>
+        <button data-life ${run.lives >= LIVES || run.truffles < run.lifePrice ? "disabled" : ""}>${run.lifePrice} で買う</button>
+      </li>`,
+      run.slots < MAX_SLOTS
+        ? `<li class="shop-row">
+            <div><strong>おまじないの枠を増やす</strong><span>${run.slots} → ${run.slots + 1}</span></div>
+            <button data-slot ${run.truffles < SLOT_PRICE ? "disabled" : ""}>${SLOT_PRICE} で買う</button>
+          </li>`
+        : "",
+    ].join("");
     this.show(
       `<div class="screen-kicker">SHOP · 次は STAGE ${nextStage + 1}${STAGES[nextStage].boss ? " · BOSS" : ""} · 目標 ${format(STAGES[nextStage].target)}</div>
        <div class="screen-goal"><span>トリュフ</span>${run.truffles}</div>
@@ -167,8 +179,10 @@ export class Screens {
        <div class="screen-sub">台の部位</div>
        <ul class="shop-list">${partOffer || `<li class="shop-empty">売り切れ</li>`}</ul>
        <p class="socket-line">${SOCKET_ORDER.map((socket) => `${SOCKET_NAMES[socket]} ${run.parts[socket] ? escape(PARTS[run.parts[socket]].name) : "空き"}`).join(" · ")}</p>
-       <div class="screen-sub">おまじない ${run.charms.length} / ${MAX_CHARMS}</div>
-       <ul class="shop-list">${owned || `<li class="shop-empty">まだ持っていない</li>`}</ul>`,
+       <div class="screen-sub">おまじない ${run.charms.length} / ${run.slots}</div>
+       <ul class="shop-list">${owned || `<li class="shop-empty">まだ持っていない</li>`}</ul>
+       <div class="screen-sub">そのほか</div>
+       <ul class="shop-list">${extras}</ul>`,
       [
         { label: `並べ直す（${run.shop.rerollCost}）`, run: () => (run.reroll(), onChange()), disabled: run.truffles < run.shop.rerollCost },
         { label: "次のステージへ", run: onNext, primary: true },
@@ -186,6 +200,8 @@ export class Screens {
         onChange();
       }),
     );
+    this.root.querySelector("[data-life]")?.addEventListener("click", () => (run.buyLife(), onChange()));
+    this.root.querySelector("[data-slot]")?.addEventListener("click", () => (run.buySlot(), onChange()));
     this.root.querySelectorAll<HTMLButtonElement>("[data-keep]").forEach((button) =>
       button.addEventListener("click", () => {
         run.keep(Number(button.dataset.keep));
