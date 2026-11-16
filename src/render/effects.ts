@@ -26,7 +26,7 @@ export class Trail {
     const material = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
       uniforms: { color: { value: new THREE.Color(color) } },
       vertexShader: `
         attribute float alpha;
@@ -39,7 +39,7 @@ export class Trail {
         uniform vec3 color;
         varying float vAlpha;
         void main() {
-          gl_FragColor = vec4(color * vAlpha, vAlpha);
+          gl_FragColor = vec4(color, vAlpha);
         }`,
     });
     this.mesh = new THREE.Mesh(this.geometry, material);
@@ -74,7 +74,7 @@ export class Trail {
       this.positions[o + 3] = p.x + dy * w;
       this.positions[o + 4] = p.y - dx * w;
       this.positions[o + 5] = z;
-      this.alphas[i * 2] = this.alphas[i * 2 + 1] = t * t * intensity * 0.6;
+      this.alphas[i * 2] = this.alphas[i * 2 + 1] = t * t * intensity * 0.5;
     }
     this.geometry.attributes.position.needsUpdate = true;
     this.geometry.attributes.alpha.needsUpdate = true;

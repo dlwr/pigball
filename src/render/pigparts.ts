@@ -46,11 +46,13 @@ export const createSnout = (x: number, y: number, r: number): Snout => {
   const goal = new THREE.Color();
   let currentLevel = 1;
   let pop = 0;
+  let bulge = 0;
   return {
     object: group,
     material,
     react(value) {
-      group.scale.z = 1 - value * 0.35;
+      group.scale.z = 1 - value * 0.45;
+      bulge = value * 0.22;
       nostrils.forEach((nostril) => nostril.scale.set(r * (0.16 + value * 0.12), r * (0.28 + value * 0.1), 1));
     },
     setLevel(level, time, dt) {
@@ -64,7 +66,7 @@ export const createSnout = (x: number, y: number, r: number): Snout => {
       material.color.copy(color);
       material.emissive.copy(color);
       const beat = level >= PALETTE.snoutLevels.length ? Math.max(0, Math.sin(time * 9)) ** 4 * 0.08 : 0;
-      const size = 1 + (level - 1) * LEVEL_GROWTH + Math.sin(pop * Math.PI * 3) * pop * 0.25 + beat;
+      const size = 1 + (level - 1) * LEVEL_GROWTH + Math.sin(pop * Math.PI * 3) * pop * 0.25 + beat + bulge;
       group.scale.x = size;
       group.scale.y = size;
     },

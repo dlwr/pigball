@@ -15,7 +15,7 @@ export const PALETTE = {
   pigSnout: 0xff8aa5,
   pigNostril: 0x5b1f30,
   pigBlush: 0xff5c8a,
-  pigTrail: 0xff9ec0,
+  pigTrail: 0xfff0f5,
   pigLips: 0xff4f7b,
   tooth: 0xfff6e6,
   gum: 0xe8708c,
