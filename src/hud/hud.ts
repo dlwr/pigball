@@ -245,7 +245,7 @@ export class Hud {
     this.balls.textContent = `BALL ${Math.max(1, Math.min(total, total + 1 - game.ballsLeft))}/${total}`;
     const run = this.currentRun;
     if (run) {
-      const target = run.stageDef.target;
+      const target = game.rules.target ?? run.stageDef.target;
       const remaining = Math.max(0, target - this.shownScore);
       const goal = remaining > 0 ? `目標まであと <strong>${remaining.toLocaleString("en-US")}</strong>` : "<strong>目標達成</strong>";
       this.run.innerHTML = `STAGE <strong>${run.stage + 1}/${STAGES.length}</strong>${run.stageDef.boss ? " BOSS" : ""} · ${goal} · トリュフ <strong>${run.truffles}</strong> · 命 <strong>${run.lives}</strong>`;

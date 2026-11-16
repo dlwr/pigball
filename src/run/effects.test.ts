@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Game } from "../game/game";
+import { Game, type ScoreKind } from "../game/game";
 import { createParams } from "../physics/params";
 import { CHARMS, CHARM_IDS } from "./charms";
 import { CURSES, CURSE_IDS } from "./curses";
@@ -39,6 +39,28 @@ describe("おまじない", () => {
   }
 });
 
+describe("当たり物の点を増やすおまじない", () => {
+  const cases: [string, ScoreKind, number][] = [
+    ["bumper-boost", "bumper", 10],
+    ["sling-sharp", "sling", 25],
+    ["spinner-swirl", "spinner", 40],
+    ["mud-lover", "mud", 50],
+    ["navel-gazer", "navel", 10],
+    ["bonus-glutton", "bonus", 5],
+    ["truffle-hunter", "jackpot", 5],
+    ["belly-drum", "belly", 2],
+    ["piggy-greed", "piggy", 2],
+    ["piggy-greed", "piggyBreak", 3],
+    ["ramp-chef", "ramp", 3],
+  ];
+  for (const [id, kind, times] of cases) {
+    it(`${CHARMS[id].name}: ${kind} の点が${times}倍`, () => {
+      const game = new Game(createParams(), storage, { modifiers: [{ id, ...CHARMS[id].effect }] });
+      expect(game.rules.modifiers[0].score?.(kind, 100, game)).toBe(100 * times);
+    });
+  }
+});
+
 describe("呪い", () => {
   for (const id of CURSE_IDS) {
     it(`${CURSES[id].name}を付けても台が動く`, () => {
@@ -74,9 +96,14 @@ describe("ギミック連携のおまじない", () => {
     expect(game.multiplier).toBe(2);
   });
 
-  it("トンカチ: 貯金箱が3回で割れる", () => {
+  it("トンカチ: 貯金箱が2回で割れる", () => {
     const game = withCharm("piggy-crusher");
-    expect(game.piggyHitsToBreak).toBe(3);
+    expect(game.piggyHitsToBreak).toBe(2);
+  });
+
+  it("長い足: フリッパーが少し長い", () => {
+    const game = withCharm("long-legs");
+    expect(game.layout.flippers.left.length).toBe(7.4);
   });
 });
 
@@ -89,11 +116,11 @@ describe("全体に掛かるレアなおまじない", () => {
     expect(game.score).toBe(150);
   });
 
-  it("豚の大群: マルチボール中は全部の点が2倍", () => {
+  it("豚の大群: マルチボール中は全部の点が3倍", () => {
     const game = withCharm("pig-horde");
     game.inMultiball = true;
     game.addScore(100);
-    expect(game.score).toBe(200);
+    expect(game.score).toBe(300);
   });
 
   it("豚の大群: マルチボールでなければそのまま", () => {
@@ -102,11 +129,18 @@ describe("全体に掛かるレアなおまじない", () => {
     expect(game.score).toBe(100);
   });
 
-  it("フィーバー体質: フィーバー中は全部の点がさらに2倍", () => {
-    const game = withCharm("fever-body");
-    game.feverTime = 5;
-    game.addScore(100);
-    expect(game.score).toBe(400);
+  it("フィーバー体質: 目標の85%でフィーバーに入る", () => {
+    const game = new Game(createParams(), storage, { target: 1000, modifiers: [{ id: "fever-body", ...CHARMS["fever-body"].effect }] });
+    game.addScore(850);
+    game.step(DT);
+    expect(game.inFever).toBe(true);
+  });
+
+  it("フィーバー体質: 目標の85%に届かなければフィーバーに入らない", () => {
+    const game = new Game(createParams(), storage, { target: 1000, modifiers: [{ id: "fever-body", ...CHARMS["fever-body"].effect }] });
+    game.addScore(840);
+    game.step(DT);
+    expect(game.inFever).toBe(false);
   });
 
   it("倍々ゲーム: 倍率がもう一度掛かる", () => {
