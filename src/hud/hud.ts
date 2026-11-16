@@ -50,6 +50,8 @@ export class Hud {
         <div class="hud-charms"></div>
       </div>
       <div class="hud-message"></div>
+      <div class="hud-key left"></div>
+      <div class="hud-key right"></div>
       <div class="hud-result">
         <div class="hud-result-title">GAME OVER</div>
         <div class="hud-result-record">NEW HIGH SCORE</div>
@@ -72,6 +74,8 @@ export class Hud {
     this.goalBar = this.root.querySelector(".hud-goal-bar")!;
     this.charms = this.root.querySelector(".hud-charms")!;
     this.tallyRoot = this.root.querySelector(".hud-tally")!;
+    this.root.querySelector(".hud-key.left")!.textContent = isTouch() ? "左をタップ" : "左 Shift";
+    this.root.querySelector(".hud-key.right")!.textContent = isTouch() ? "右をタップ" : "右 Shift";
   }
 
   setRun(run: Run | null): void {
@@ -135,6 +139,10 @@ export class Hud {
     else if (event.kind === "stageClear") this.showToast("STAGE CLEAR!");
     else if (event.kind === "fever") this.showToast("FEVER!");
     else if (event.kind === "bonus" && event.tally) this.startTally(event.tally);
+  }
+
+  flipped(side: "left" | "right"): void {
+    this.root.querySelector(`.hud-key.${side}`)?.remove();
   }
 
   private flashScreen(kind: "miss" | "win"): void {

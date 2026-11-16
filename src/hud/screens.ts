@@ -68,6 +68,7 @@ export class Screens {
        <div class="screen-goal"><span>目標</span>${format(stage.target)}</div>
        ${this.curseBlock(run.curse, !run.activeCurse)}
        <p class="screen-lead">命 ${hearts(run.lives)}</p>
+       ${run.stage === 0 ? `<p class="screen-lead">光っている矢印を狙え。決めるたびに点が上がり、ボールを落とすと戻る。</p>` : ""}
        ${this.charmList(run)}`,
       [{ label: isTouch() ? "タップではじめる" : "Space ではじめる", run: onStart, primary: true }],
     );
