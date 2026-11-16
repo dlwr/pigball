@@ -3,6 +3,7 @@ import { levelFor } from "./audio/pattern";
 import { Sfx } from "./audio/sfx";
 import { FixedStepper } from "./core/stepper";
 import { Game, type GameEvent, type GameRules } from "./game/game";
+import { hitStopSeconds } from "./game/hitstop";
 import { Hud } from "./hud/hud";
 import { Screens } from "./hud/screens";
 import { bindInput } from "./input/input";
@@ -14,7 +15,6 @@ import "./style.css";
 
 const PHYSICS_HZ = 960;
 const MAX_FRAME_SECONDS = 0.1;
-const HIT_STOP_SECONDS = 0.045;
 const HIT_STOP_COOLDOWN_SECONDS = 0.3;
 const SETTLE_DELAY_SECONDS = 1;
 
@@ -158,9 +158,9 @@ const handle = (event: GameEvent) => {
   sfx.play(event);
   renderer.onEvent(event);
   hud.onEvent(event, game);
-  const heavy = (event.kind === "bumper" && event.speed > 100) || event.kind === "bank";
-  if (heavy && hitStopCooldown <= 0) {
-    hitStop = HIT_STOP_SECONDS;
+  const stop = hitStopSeconds(event);
+  if (stop > 0 && (event.kind !== "bumper" || hitStopCooldown <= 0)) {
+    hitStop = Math.max(hitStop, stop);
     hitStopCooldown = HIT_STOP_COOLDOWN_SECONDS;
   }
 };
