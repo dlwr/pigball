@@ -50,6 +50,8 @@ export class Hud {
         <div class="hud-charms"></div>
       </div>
       <div class="hud-message"></div>
+      <div class="hud-key left"></div>
+      <div class="hud-key right"></div>
       <div class="hud-result">
         <div class="hud-result-title">GAME OVER</div>
         <div class="hud-result-record">NEW HIGH SCORE</div>
@@ -72,6 +74,8 @@ export class Hud {
     this.goalBar = this.root.querySelector(".hud-goal-bar")!;
     this.charms = this.root.querySelector(".hud-charms")!;
     this.tallyRoot = this.root.querySelector(".hud-tally")!;
+    this.root.querySelector(".hud-key.left")!.textContent = isTouch() ? "左をタップ" : "左 Shift";
+    this.root.querySelector(".hud-key.right")!.textContent = isTouch() ? "右をタップ" : "右 Shift";
   }
 
   setRun(run: Run | null): void {
@@ -135,6 +139,10 @@ export class Hud {
     else if (event.kind === "stageClear") this.showToast("STAGE CLEAR!");
     else if (event.kind === "fever") this.showToast("FEVER!");
     else if (event.kind === "bonus" && event.tally) this.startTally(event.tally);
+  }
+
+  flipped(side: "left" | "right"): void {
+    this.root.querySelector(`.hud-key.${side}`)?.remove();
   }
 
   private flashScreen(kind: "miss" | "win"): void {
@@ -233,7 +241,9 @@ export class Hud {
     const run = this.currentRun;
     if (run) {
       const target = run.stageDef.target;
-      this.run.innerHTML = `STAGE <strong>${run.stage + 1}/${STAGES.length}</strong>${run.stageDef.boss ? " BOSS" : ""} · 目標 <strong>${target.toLocaleString("en-US")}</strong> · トリュフ <strong>${run.truffles}</strong> · 命 <strong>${run.lives}</strong>`;
+      const remaining = Math.max(0, target - this.shownScore);
+      const goal = remaining > 0 ? `目標まであと <strong>${remaining.toLocaleString("en-US")}</strong>` : "<strong>目標達成</strong>";
+      this.run.innerHTML = `STAGE <strong>${run.stage + 1}/${STAGES.length}</strong>${run.stageDef.boss ? " BOSS" : ""} · ${goal} · トリュフ <strong>${run.truffles}</strong> · 命 <strong>${run.lives}</strong>`;
       (this.goalBar.firstElementChild as HTMLElement).style.width = `${Math.min(100, (this.shownScore / target) * 100)}%`;
     }
     this.multiplier.textContent = [game.multiplier > 1 ? `×${game.multiplier}` : "", game.inFever ? `FEVER ${Math.ceil(game.feverTime)}` : ""].filter(Boolean).join(" ");

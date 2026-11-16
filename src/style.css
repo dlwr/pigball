@@ -133,6 +133,25 @@ body {
   color: var(--muted);
 }
 
+.hud-key {
+  position: absolute;
+  bottom: 13vh;
+  padding: 3px 8px;
+  font-size: clamp(11px, 1.7vh, 14px);
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(13, 4, 8, 0.75);
+  border: 1px solid var(--muted);
+}
+
+.hud-key.left {
+  right: calc(50% + 6vh);
+}
+
+.hud-key.right {
+  left: calc(50% + 1vh);
+}
+
 .hud[data-state="tilt"] .hud-message {
   color: var(--accent);
   font-size: clamp(32px, 8vh, 64px);
@@ -427,7 +446,7 @@ body {
 
 .hud-goal-bar {
   width: min(220px, 60vw);
-  height: 3px;
+  height: 6px;
   background: rgba(255, 143, 181, 0.2);
 }
 

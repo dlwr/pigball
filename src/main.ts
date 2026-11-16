@@ -73,12 +73,17 @@ const beginRun = (next: Run) => {
   else showStageIntro();
 };
 
+const startStage = () => {
+  if (!run) return;
+  load(run.stageRules());
+  hud.setRun(run);
+  screens.hide();
+};
+
 const showStageIntro = () => {
   if (!run) return;
-  const current = run;
-  load(current.stageRules());
-  hud.setRun(current);
-  screens.stageIntro(current, () => screens.hide());
+  startStage();
+  screens.stageIntro(run, () => screens.hide());
 };
 
 const showShop = () => {
@@ -90,7 +95,7 @@ const showShop = () => {
     screens.shop(current, refresh, () => {
       current.nextStage();
       saveRun();
-      showStageIntro();
+      startStage();
     });
   };
   refresh();
@@ -131,7 +136,10 @@ bindInput(app, {
   flipper(side, pressed) {
     game.setFlipper(side, pressed);
     const actual = game.world.flippers[side === "left" ? 0 : 1].pressed;
-    if (actual && !flipperState[side]) sfx.solenoid();
+    if (actual && !flipperState[side]) {
+      sfx.solenoid();
+      hud.flipped(side);
+    }
     flipperState[side] = actual;
   },
   plunger(held, limit) {
