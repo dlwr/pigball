@@ -85,20 +85,20 @@ describe("ラン", () => {
       expect(run.lastSpare).toBe(0);
     });
 
-    it("目標を超えた分だけトリュフが増える", () => {
+    it("目標を2割超えるごとにトリュフが1つ増える", () => {
       const a = new Run(1);
       clearStage(a, 1, a.stageDef.target);
       const b = new Run(1);
-      clearStage(b, 1, b.stageDef.target * 1.5);
-      expect(b.truffles - a.truffles).toBe(5);
+      clearStage(b, 1, b.stageDef.target * 1.4);
+      expect(b.truffles - a.truffles).toBe(2);
     });
 
-    it("超えた分のトリュフには上限がある", () => {
+    it("超えた分のトリュフは5つまで", () => {
       const a = new Run(1);
       clearStage(a, 1, a.stageDef.target);
       const b = new Run(1);
       clearStage(b, 1, b.stageDef.target * 100);
-      expect(b.truffles - a.truffles).toBe(15);
+      expect(b.truffles - a.truffles).toBe(5);
     });
 
     it("命3つで始まる", () => {

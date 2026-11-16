@@ -30,8 +30,8 @@ const RARE_CHANCE = 0.2;
 const CURSE_WARD = "pig-god";
 const BASE_REWARD = 3;
 const REWARD_PER_SPARE_BALL = 2;
-const OVERKILL_STEP = 0.1;
-const MAX_OVERKILL_REWARD = 15;
+const OVERKILL_STEP = 0.2;
+const MAX_OVERKILL_REWARD = 5;
 
 export type RunPhase = "stage" | "shop" | "won" | "lost";
 
