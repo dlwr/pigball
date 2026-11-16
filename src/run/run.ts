@@ -24,6 +24,9 @@ export const STAGES: StageDef[] = [
 export const BALLS_PER_STAGE = 2;
 const RETRY_EXTRA_BALLS = 1;
 export const MAX_CHARMS = 5;
+export const MAX_SLOTS = 6;
+export const SLOT_PRICE = 20;
+const LIFE_PRICE_STEP = 15;
 export const LIVES = 3;
 const SHOP_SIZE = 3;
 const RARE_CHANCE = 0.2;
@@ -57,6 +60,8 @@ export interface RunData {
   lives?: number;
   retrying?: boolean;
   charms: string[];
+  slots?: number;
+  livesBought?: number;
   counts?: Record<string, number>;
   curse: string | null;
   usedBossCurses: string[];
@@ -74,6 +79,8 @@ export class Run {
   lives = LIVES;
   retrying = false;
   charms: string[] = [];
+  slots = MAX_CHARMS;
+  livesBought = 0;
   shop: Shop = { offers: [], rerollCost: 1, kept: null, part: null };
   parts: TableParts = { ...DEFAULT_PARTS };
   lastReward = 0;
@@ -142,7 +149,7 @@ export class Run {
 
   buy(index: number): void {
     const id = this.shop.offers[index];
-    if (this.phase !== "shop" || !id || this.charms.length >= MAX_CHARMS) return;
+    if (this.phase !== "shop" || !id || this.charms.length >= this.slots) return;
     const { price } = CHARMS[id];
     if (this.truffles < price) return;
     this.truffles -= price;
@@ -157,6 +164,23 @@ export class Run {
     this.truffles -= PARTS[part].price;
     this.parts[socket] = part;
     this.shop.part = null;
+  }
+
+  buySlot(): void {
+    if (this.phase !== "shop" || this.slots >= MAX_SLOTS || this.truffles < SLOT_PRICE) return;
+    this.truffles -= SLOT_PRICE;
+    this.slots++;
+  }
+
+  get lifePrice(): number {
+    return LIFE_PRICE_STEP * (this.livesBought + 1);
+  }
+
+  buyLife(): void {
+    if (this.phase !== "shop" || this.lives >= LIVES || this.truffles < this.lifePrice) return;
+    this.truffles -= this.lifePrice;
+    this.lives++;
+    this.livesBought++;
   }
 
   keep(index: number): void {
@@ -195,6 +219,8 @@ export class Run {
       lives: this.lives,
       retrying: this.retrying,
       charms: [...this.charms],
+      slots: this.slots,
+      livesBought: this.livesBought,
       counts: { ...this.counts },
       curse: this.curseId,
       usedBossCurses: [...this.usedBossCurses],
@@ -212,6 +238,8 @@ export class Run {
     run.lives = data.lives ?? LIVES;
     run.retrying = data.retrying ?? false;
     run.charms = data.charms.filter((id) => id in CHARMS);
+    run.slots = data.slots ?? MAX_CHARMS;
+    run.livesBought = data.livesBought ?? 0;
     run.counts = { ...data.counts };
     run.curseId = data.curse && data.curse in CURSES ? data.curse : null;
     run.usedBossCurses = [...data.usedBossCurses];
