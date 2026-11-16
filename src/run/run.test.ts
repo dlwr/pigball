@@ -34,6 +34,22 @@ describe("ラン", () => {
     expect([rules.balls, rules.target]).toEqual([2, STAGES[0].target]);
   });
 
+  it("失敗してやり直すステージはボールが1個多い", () => {
+    const run = new Run(1);
+    failStage(run);
+    run.nextStage();
+    expect(run.stageRules().balls).toBe(3);
+  });
+
+  it("やり直しでクリアすると、次のステージはボール2個に戻る", () => {
+    const run = new Run(1);
+    failStage(run);
+    run.nextStage();
+    clearStage(run);
+    run.nextStage();
+    expect(run.stageRules().balls).toBe(2);
+  });
+
   describe("ステージの終わり", () => {
     it("クリアするとトリュフがもらえてショップに進む", () => {
       const run = new Run(1);

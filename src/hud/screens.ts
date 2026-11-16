@@ -119,7 +119,7 @@ export class Screens {
     this.show(
       `<div class="screen-kicker">STAGE ${run.stage + 1} 失敗</div>
        <div class="screen-goal"><span>命</span>${hearts(run.lives)}</div>
-       <p class="screen-lead">命を1つ失った。ショップで立て直して、もう一度挑む。</p>`,
+       <p class="screen-lead">命を1つ失った。ショップで立て直して、もう一度挑む。やり直しはボールが1個多い。</p>`,
       [{ label: "ショップへ", run: onNext, primary: true }],
     );
   }
