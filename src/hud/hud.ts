@@ -79,8 +79,8 @@ export class Hud {
     this.goalBar = this.root.querySelector(".hud-goal-bar")!;
     this.charms = this.root.querySelector(".hud-charms")!;
     this.tallyRoot = this.root.querySelector(".hud-tally")!;
-    this.root.querySelector(".hud-key.left")!.textContent = isTouch() ? "左をタップ" : "左 Shift";
-    this.root.querySelector(".hud-key.right")!.textContent = isTouch() ? "右をタップ" : "右 Shift";
+    this.root.querySelector(".hud-key.left")!.textContent = isTouch() ? "左をタップ" : "← / 左 Shift";
+    this.root.querySelector(".hud-key.right")!.textContent = isTouch() ? "右をタップ" : "→ / 右 Shift";
   }
 
   setRun(run: Run | null): void {
