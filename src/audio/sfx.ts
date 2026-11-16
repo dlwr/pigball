@@ -230,6 +230,9 @@ export class Sfx {
       case "drain":
         this.oink(700, 0.55, 0.35, 1.8);
         break;
+      case "stageClear":
+        [280, 350, 440, 560].forEach((pitch, i) => this.oink(pitch, 0.14, 0.3, 1, i * 0.12));
+        break;
       case "over":
         this.oink(120, 0.5, 0.35);
         break;

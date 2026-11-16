@@ -17,6 +17,9 @@ const WALL_THICKNESS = 0.5;
 const MARGIN = 1.5;
 const VIEW_BOTTOM = -3.5;
 const VIEW_TOP = TABLE_HEIGHT + 12;
+const CONFETTI_SECONDS = 2.5;
+const CONFETTI_INTERVAL = 0.05;
+const CONFETTI_COLORS = [PALETTE.truffle, PALETTE.laneOn, PALETTE.pigLips, PALETTE.tooth, PALETTE.sling].map((hex) => new THREE.Color(hex));
 
 interface BallView {
   piglet: Piglet;
@@ -82,6 +85,8 @@ export class TableRenderer {
   private readonly hitMarks = new HitMarks();
   private readonly shake = new Shake();
   private readonly ramp: RampView;
+  private confetti = 0;
+  private confettiWait = 0;
   private squash = 0;
   private squashVelocity = 0;
   private time = 0;
@@ -340,6 +345,9 @@ export class TableRenderer {
         this.mouthOpen = 1;
         this.shake.add(0.5);
         break;
+      case "stageClear":
+        this.confetti = CONFETTI_SECONDS;
+        break;
       case "tilt":
       case "over":
         this.shake.add(0.5);
@@ -353,6 +361,7 @@ export class TableRenderer {
     this.syncBalls(alpha, dt);
     this.syncFlippers(alpha);
     this.syncProps(dt);
+    this.throwConfetti(dt);
     this.sparks.update(dt);
     this.hitMarks.update(dt);
     this.ramp.update(
@@ -373,6 +382,16 @@ export class TableRenderer {
     if (this.fittedView !== `${this.view.tilt}|${this.view.fov}`) this.fitCamera(this.camera.aspect);
     this.camera.position.set(this.cameraBase.x + sx, this.cameraBase.y + sy, this.cameraBase.z);
     this.composer.render(dt);
+  }
+
+  private throwConfetti(dt: number): void {
+    if (this.confetti <= 0) return;
+    this.confetti -= dt;
+    this.confettiWait -= dt;
+    if (this.confettiWait > 0) return;
+    this.confettiWait = CONFETTI_INTERVAL;
+    const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+    this.sparks.burst(Math.random() * TABLE_WIDTH, Math.random() * TABLE_HEIGHT, 20, 40, color, 3);
   }
 
   private impact(speed: number): void {

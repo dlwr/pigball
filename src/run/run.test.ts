@@ -65,6 +65,26 @@ describe("ラン", () => {
       expect(b.truffles).toBeGreaterThan(a.truffles);
     });
 
+    it("ボールを残した分のトリュフを内訳として持つ", () => {
+      const run = new Run(1);
+      clearStage(run, 2);
+      expect(run.lastSpare).toBe(2);
+    });
+
+    it("最後のボールでクリアすると、残した分はない", () => {
+      const run = new Run(1);
+      clearStage(run, 1);
+      expect(run.lastSpare).toBe(0);
+    });
+
+    it("失敗すると、残した分はない", () => {
+      const run = new Run(1);
+      clearStage(run, 2);
+      run.nextStage();
+      failStage(run);
+      expect(run.lastSpare).toBe(0);
+    });
+
     it("目標を超えた分だけトリュフが増える", () => {
       const a = new Run(1);
       clearStage(a, 1, a.stageDef.target);

@@ -109,7 +109,11 @@ export class Screens {
     this.show(
       `<div class="screen-kicker">STAGE ${run.stage + 1} CLEAR</div>
        <div class="screen-goal"><span>トリュフ</span>+${run.lastReward}</div>
-       ${run.lastOverkill > 0 ? `<p class="screen-lead">うち目標を超えた分 +${run.lastOverkill}</p>` : ""}
+       <dl class="key-list">
+         <dt>クリア</dt><dd>+${run.lastReward - run.lastSpare - run.lastOverkill}</dd>
+         <dt>残したボール</dt><dd>+${run.lastSpare}</dd>
+         <dt>目標を超えた分</dt><dd>+${run.lastOverkill}</dd>
+       </dl>
        <p class="screen-lead">所持 ${run.truffles} トリュフ</p>`,
       [{ label: run.phase === "won" ? "結果へ" : "ショップへ", run: onNext, primary: true }],
     );

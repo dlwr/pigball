@@ -78,6 +78,7 @@ export class Run {
   parts: TableParts = { ...DEFAULT_PARTS };
   lastReward = 0;
   lastOverkill = 0;
+  lastSpare = 0;
   private counts: Record<string, number> = {};
   private stageModifiers: Modifier[] = [];
   private curseId: string | null = null;
@@ -120,13 +121,15 @@ export class Run {
       this.lives--;
       this.lastReward = 0;
       this.lastOverkill = 0;
+      this.lastSpare = 0;
       this.phase = this.lives > 0 ? "shop" : "lost";
       if (this.phase === "shop") this.openShop();
       return;
     }
     const { target } = this.stageDef;
     this.lastOverkill = Math.min(MAX_OVERKILL_REWARD, Math.max(0, Math.floor((result.score - target) / (target * OVERKILL_STEP) + 1e-9)));
-    this.lastReward = BASE_REWARD + Math.floor(this.stage / 2) + Math.max(0, result.ballsLeft - 1) * REWARD_PER_SPARE_BALL + this.lastOverkill;
+    this.lastSpare = Math.max(0, result.ballsLeft - 1) * REWARD_PER_SPARE_BALL;
+    this.lastReward = BASE_REWARD + Math.floor(this.stage / 2) + this.lastSpare + this.lastOverkill;
     this.truffles += this.lastReward;
     if (this.stage === STAGES.length - 1) {
       this.phase = "won";
