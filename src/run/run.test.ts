@@ -28,6 +28,12 @@ describe("ラン", () => {
     expect(STAGES.every((s, i) => i === 0 || s.target > STAGES[i - 1].target)).toBe(true);
   });
 
+  it("ボスの次のステージは、目標の上がり幅がボスのときより小さい", () => {
+    const rise = (i: number) => STAGES[i].target - STAGES[i - 1].target;
+    const afterBoss = STAGES.map((_, i) => i).filter((i) => i > 0 && STAGES[i - 1].boss);
+    expect(afterBoss.every((i) => rise(i) < rise(i - 1))).toBe(true);
+  });
+
   it("ステージのルールはボール2個と目標スコア", () => {
     const run = new Run(1);
     const rules = run.stageRules();
@@ -85,20 +91,20 @@ describe("ラン", () => {
       expect(run.lastSpare).toBe(0);
     });
 
-    it("目標を超えた分だけトリュフが増える", () => {
+    it("目標を2割超えるごとにトリュフが1つ増える", () => {
       const a = new Run(1);
       clearStage(a, 1, a.stageDef.target);
       const b = new Run(1);
-      clearStage(b, 1, b.stageDef.target * 1.5);
-      expect(b.truffles - a.truffles).toBe(5);
+      clearStage(b, 1, b.stageDef.target * 1.4);
+      expect(b.truffles - a.truffles).toBe(2);
     });
 
-    it("超えた分のトリュフには上限がある", () => {
+    it("超えた分のトリュフは5つまで", () => {
       const a = new Run(1);
       clearStage(a, 1, a.stageDef.target);
       const b = new Run(1);
       clearStage(b, 1, b.stageDef.target * 100);
-      expect(b.truffles - a.truffles).toBe(15);
+      expect(b.truffles - a.truffles).toBe(5);
     });
 
     it("命3つで始まる", () => {

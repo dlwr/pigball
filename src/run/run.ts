@@ -11,14 +11,14 @@ export interface StageDef {
 }
 
 export const STAGES: StageDef[] = [
-  { target: 10_000, boss: false },
-  { target: 18_000, boss: false },
-  { target: 30_000, boss: true },
-  { target: 45_000, boss: false },
+  { target: 25_000, boss: false },
+  { target: 40_000, boss: false },
+  { target: 65_000, boss: true },
   { target: 70_000, boss: false },
-  { target: 110_000, boss: true },
-  { target: 160_000, boss: false },
-  { target: 250_000, boss: true },
+  { target: 95_000, boss: false },
+  { target: 140_000, boss: true },
+  { target: 150_000, boss: false },
+  { target: 240_000, boss: true },
 ];
 
 export const BALLS_PER_STAGE = 2;
@@ -30,8 +30,8 @@ const RARE_CHANCE = 0.2;
 const CURSE_WARD = "pig-god";
 const BASE_REWARD = 3;
 const REWARD_PER_SPARE_BALL = 2;
-const OVERKILL_STEP = 0.1;
-const MAX_OVERKILL_REWARD = 15;
+const OVERKILL_STEP = 0.2;
+const MAX_OVERKILL_REWARD = 5;
 
 export type RunPhase = "stage" | "shop" | "won" | "lost";
 
