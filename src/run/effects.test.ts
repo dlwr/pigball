@@ -71,6 +71,50 @@ describe("呪い", () => {
   }
 });
 
+describe("呪いの中身", () => {
+  const withCurse = (id: string) => new Game(createParams(), storage, { modifiers: [{ id, ...CURSES[id].effect }] });
+
+  it("短い足: フリッパーが少し短い", () => {
+    expect(withCurse("short-legs").layout.flippers.left.length).toBe(6.6);
+  });
+
+  it("居眠り鼻: バンパーの弾きが弱い", () => {
+    expect(withCurse("sleepy-snouts").layout.bumpers[0].kick).toBe(85);
+  });
+
+  it("おまもり忘れ: ボールセーブが3秒になる", () => {
+    expect(withCurse("no-save").rules.ballSaveSeconds).toBe(3);
+  });
+
+  it("泥の洪水: 泥に入ると光ったショットの段階が1に戻る", () => {
+    const game = withCurse("mud-flood");
+    game.shotLevel = 4;
+    game.rules.modifiers[0].event?.("mud", game);
+    expect(game.shotLevel).toBe(1);
+  });
+
+  it("泥の洪水: バンパーの弾きが弱い", () => {
+    expect(withCurse("mud-flood").layout.bumpers[0].kick).toBe(80);
+  });
+
+  it("泥の洪水: 泥以外では段階は戻らない", () => {
+    const game = withCurse("mud-flood");
+    game.shotLevel = 4;
+    game.rules.modifiers[0].event?.("bumper", game);
+    expect(game.shotLevel).toBe(4);
+  });
+
+  it("ホースびいき: ランプ以外は光ったショットの上乗せが4分の1", () => {
+    const game = withCurse("clogged-hose");
+    expect(game.rules.modifiers[0].shot?.("target", 2000, game)).toBe(500);
+  });
+
+  it("ホースびいき: ランプの上乗せはそのまま", () => {
+    const game = withCurse("clogged-hose");
+    expect(game.rules.modifiers[0].shot?.("ramp", 2000, game)).toBe(2000);
+  });
+});
+
 describe("ギミック連携のおまじない", () => {
   const withCharm = (id: string) => new Game(createParams(), storage, { modifiers: [{ id, ...CHARMS[id].effect }] });
 

@@ -15,19 +15,19 @@ const defs: CurseDef[] = [
     description: "バンパーの点が半分で、弾きも弱い",
     boss: false,
     effect: {
-      layout: (layout) => layout.bumpers.forEach((bumper) => (bumper.kick = 70)),
+      layout: (layout) => layout.bumpers.forEach((bumper) => (bumper.kick = 85)),
       score: (kind, points) => (kind === "bumper" ? points / 2 : points),
     },
   },
   {
     id: "short-legs",
     name: "短い足",
-    description: "フリッパーが短い",
+    description: "フリッパーが少し短い",
     boss: false,
     effect: {
       layout: (layout) => {
-        layout.flippers.left.length = 6.2;
-        layout.flippers.right.length = 6.2;
+        layout.flippers.left.length = 6.6;
+        layout.flippers.right.length = 6.6;
       },
     },
   },
@@ -39,25 +39,31 @@ const defs: CurseDef[] = [
     boss: false,
     effect: { score: (kind, points) => (kind === "piggy" || kind === "piggyBreak" ? 0 : points) },
   },
-  { id: "no-save", name: "おまもり忘れ", description: "ボールセーブがない", boss: false, effect: { start: (game) => (game.rules.ballSaveSeconds = 0) } },
+  { id: "no-save", name: "おまもり忘れ", description: "ボールセーブが3秒しかない", boss: false, effect: { start: (game) => (game.rules.ballSaveSeconds = 3) } },
   {
     id: "mud-flood",
     name: "泥の洪水",
-    description: "泥んこ沼が広がって、ボールがもたつく",
+    description: "泥んこ沼が広がってバンパーの弾きが弱まり、入ると光ったショットの段階が1に戻る",
     boss: true,
     effect: {
       layout: (layout) => {
-        layout.mud.r = 6;
+        layout.mud.r = 8;
         layout.mud.drag = 5;
+        layout.bumpers.forEach((bumper) => (bumper.kick = 80));
+      },
+      event: (kind, game) => {
+        if (kind !== "mud" || game.shotLevel === 1) return false;
+        game.shotLevel = 1;
+        return true;
       },
     },
   },
   {
     id: "clogged-hose",
-    name: "詰まったホース",
-    description: "ランプから点が出ず、ジャックポットも半分",
+    name: "ホースびいき",
+    description: "ランプ以外は、光ったショットの上乗せが4分の1",
     boss: true,
-    effect: { score: (kind, points) => (kind === "ramp" ? 0 : kind === "jackpot" ? points / 2 : points) },
+    effect: { shot: (shot, points) => (shot === "ramp" ? points : points / 4) },
   },
   {
     id: "earth-weight",
