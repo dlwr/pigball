@@ -125,7 +125,7 @@ export class Screens {
       })
       .join("");
     this.show(
-      `<div class="screen-kicker">SHOP · 次は STAGE ${nextStage + 1}${STAGES[nextStage].boss ? " · BOSS" : ""}</div>
+      `<div class="screen-kicker">SHOP · 次は STAGE ${nextStage + 1}${STAGES[nextStage].boss ? " · BOSS" : ""} · 目標 ${format(STAGES[nextStage].target)}</div>
        <div class="screen-goal"><span>トリュフ</span>${run.truffles}</div>
        ${this.curseBlock(run.curse, !run.activeCurse)}
        <ul class="shop-list">${offers || `<li class="shop-empty">売り切れ</li>`}</ul>

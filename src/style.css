@@ -446,7 +446,7 @@ body {
 
 .hud-goal-bar {
   width: min(220px, 60vw);
-  height: 3px;
+  height: 6px;
   background: rgba(255, 143, 181, 0.2);
 }
 

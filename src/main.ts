@@ -73,12 +73,17 @@ const beginRun = (next: Run) => {
   else showStageIntro();
 };
 
+const startStage = () => {
+  if (!run) return;
+  load(run.stageRules());
+  hud.setRun(run);
+  screens.hide();
+};
+
 const showStageIntro = () => {
   if (!run) return;
-  const current = run;
-  load(current.stageRules());
-  hud.setRun(current);
-  screens.stageIntro(current, () => screens.hide());
+  startStage();
+  screens.stageIntro(run, () => screens.hide());
 };
 
 const showShop = () => {
@@ -90,7 +95,7 @@ const showShop = () => {
     screens.shop(current, refresh, () => {
       current.nextStage();
       saveRun();
-      showStageIntro();
+      startStage();
     });
   };
   refresh();

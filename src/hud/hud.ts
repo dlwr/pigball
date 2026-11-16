@@ -241,7 +241,9 @@ export class Hud {
     const run = this.currentRun;
     if (run) {
       const target = run.stageDef.target;
-      this.run.innerHTML = `STAGE <strong>${run.stage + 1}/${STAGES.length}</strong>${run.stageDef.boss ? " BOSS" : ""} · 目標 <strong>${target.toLocaleString("en-US")}</strong> · トリュフ <strong>${run.truffles}</strong> · 命 <strong>${run.lives}</strong>`;
+      const remaining = Math.max(0, target - this.shownScore);
+      const goal = remaining > 0 ? `目標まであと <strong>${remaining.toLocaleString("en-US")}</strong>` : "<strong>目標達成</strong>";
+      this.run.innerHTML = `STAGE <strong>${run.stage + 1}/${STAGES.length}</strong>${run.stageDef.boss ? " BOSS" : ""} · ${goal} · トリュフ <strong>${run.truffles}</strong> · 命 <strong>${run.lives}</strong>`;
       (this.goalBar.firstElementChild as HTMLElement).style.width = `${Math.min(100, (this.shownScore / target) * 100)}%`;
     }
     this.multiplier.textContent = [game.multiplier > 1 ? `×${game.multiplier}` : "", game.inFever ? `FEVER ${Math.ceil(game.feverTime)}` : ""].filter(Boolean).join(" ");
