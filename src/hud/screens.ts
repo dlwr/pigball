@@ -22,6 +22,7 @@ interface Action {
 export class Screens {
   private readonly root: HTMLElement;
   private primary: (() => void) | null = null;
+  private escape: (() => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.root = document.createElement("div");
@@ -32,10 +33,12 @@ export class Screens {
       this.root.addEventListener(type, (e) => e.stopPropagation());
     }
     window.addEventListener("keydown", (e) => {
-      if (this.root.hidden || e.repeat || (e.code !== "Space" && e.code !== "Enter")) return;
+      if (this.root.hidden || e.repeat) return;
+      const action = e.code === "Space" || e.code === "Enter" ? this.primary : e.code === "Escape" ? this.escape : null;
+      if (!action) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      this.primary?.();
+      action();
     }, { capture: true });
   }
 
@@ -47,6 +50,34 @@ export class Screens {
     this.root.hidden = true;
     this.root.innerHTML = "";
     this.primary = null;
+    this.escape = null;
+  }
+
+  pause(options: { inRun: boolean; musicOn: boolean; onResume: () => void; onMenu: () => void; onMusic: () => void }): void {
+    const rows: [string, string][] = isTouch()
+      ? [
+          ["フリッパー", "画面の左右をタップ"],
+          ["発射", "下にスワイプして離す"],
+          ["台を揺らす", "2本指で左右か上にスワイプ"],
+        ]
+      : [
+          ["フリッパー", "左右の Shift ／ Z と /"],
+          ["発射", "Space を長押しして離す"],
+          ["台を揺らす", "Space を押しながら ← → ↑"],
+          ["一時停止", "Esc ／ P"],
+        ];
+    this.show(
+      `<div class="screen-kicker">PAUSE</div>
+       <dl class="key-list">${rows.map(([name, keys]) => `<dt>${name}</dt><dd>${escape(keys)}</dd>`).join("")}</dl>
+       <p class="screen-lead">台を揺らしすぎると TILT になり、そのボールは打てなくなる。</p>
+       ${options.inRun ? `<p class="screen-lead">メニューへ戻ると、このステージは最初からになる。</p>` : ""}`,
+      [
+        { label: `音楽 ${options.musicOn ? "ON" : "OFF"}`, run: options.onMusic },
+        { label: "メニューへ", run: options.onMenu },
+        { label: "つづける", run: options.onResume, primary: true },
+      ],
+    );
+    this.escape = options.onResume;
   }
 
   menu(options: { canContinue: boolean; onRun: () => void; onContinue: () => void; onFree: () => void }): void {

@@ -28,6 +28,7 @@ export class Hud {
   private readonly tallyRoot: HTMLElement;
   private tally: { data: BonusTally; time: number; step: number } | null = null;
   onTallyStep: ((step: number, final: boolean) => void) | null = null;
+  onPause: (() => void) | null = null;
   private toastTime = 0;
   private readonly toastQueue: string[] = [];
   private shownScore = 0;
@@ -60,8 +61,12 @@ export class Hud {
         <div class="hud-result-hint"></div>
       </div>
       <div class="hud-toast"></div>
-      <div class="hud-tally"></div>`;
+      <div class="hud-tally"></div>
+      <button class="hud-pause" aria-label="一時停止"></button>`;
     container.appendChild(this.root);
+    const pause = this.root.querySelector(".hud-pause")!;
+    for (const type of ["pointerdown", "pointerup", "touchstart", "touchend"]) pause.addEventListener(type, (e) => e.stopPropagation());
+    pause.addEventListener("click", () => this.onPause?.());
     this.score = this.root.querySelector(".hud-score")!;
     this.high = this.root.querySelector(".hud-high")!;
     this.balls = this.root.querySelector(".hud-balls")!;

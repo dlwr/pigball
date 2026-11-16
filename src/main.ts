@@ -46,6 +46,28 @@ const load = (rules?: Partial<GameRules>) => {
   if (debug) Object.assign(window, { game, run });
 };
 
+const toggleMusic = () => {
+  music.enabled = !music.enabled;
+  musicPreference.save(music.enabled);
+};
+
+const pause = () => {
+  if (screens.open || game.state === "over" || game.state === "cleared") return;
+  game.setFlipper("left", false);
+  game.setFlipper("right", false);
+  game.setPlunger(false);
+  const show = () =>
+    screens.pause({
+      inRun: run !== null,
+      musicOn: music.enabled,
+      onResume: () => screens.hide(),
+      onMenu: showMenu,
+      onMusic: () => (toggleMusic(), show()),
+    });
+  show();
+};
+hud.onPause = pause;
+
 const saveRun = () => {
   if (run && (run.phase === "stage" || run.phase === "shop")) runStorage.save(run.toJSON());
   else runStorage.clear();
@@ -152,10 +174,10 @@ bindInput(app, {
     game.restart();
   },
   toggleMusic() {
-    music.enabled = !music.enabled;
-    musicPreference.save(music.enabled);
+    toggleMusic();
     hud.notice(music.enabled ? "MUSIC ON" : "MUSIC OFF");
   },
+  pause,
   interact: () => sfx.unlock(),
 });
 
@@ -208,6 +230,7 @@ document.addEventListener("visibilitychange", () => {
   cancelAnimationFrame(frameId);
   if (document.hidden) {
     sfx.suspend();
+    if (game.state === "playing") pause();
     return;
   }
   stepper.reset();

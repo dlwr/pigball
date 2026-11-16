@@ -7,6 +7,7 @@ export interface Controls {
   nudge(dx: number, dy: number): void;
   restart(): void;
   toggleMusic(): void;
+  pause(): void;
   blocked(): boolean;
   interact(): void;
 }
@@ -52,6 +53,7 @@ export const bindInput = (target: HTMLElement, controls: Controls): (() => void)
       const [dx, dy] = NUDGE_KEYS[e.code];
       controls.nudge(dx, dy);
     } else if (e.code === "KeyM") controls.toggleMusic();
+    else if (e.code === "Escape" || e.code === "KeyP") controls.pause();
     else if (e.code === "Enter" && controls.state() === "over") controls.restart();
     else return;
     e.preventDefault();
