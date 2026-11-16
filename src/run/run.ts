@@ -14,11 +14,11 @@ export const STAGES: StageDef[] = [
   { target: 25_000, boss: false },
   { target: 40_000, boss: false },
   { target: 65_000, boss: true },
-  { target: 70_000, boss: false },
-  { target: 95_000, boss: false },
-  { target: 140_000, boss: true },
-  { target: 150_000, boss: false },
-  { target: 240_000, boss: true },
+  { target: 80_000, boss: false },
+  { target: 100_000, boss: false },
+  { target: 160_000, boss: true },
+  { target: 170_000, boss: false },
+  { target: 270_000, boss: true },
 ];
 
 export const BALLS_PER_STAGE = 2;
