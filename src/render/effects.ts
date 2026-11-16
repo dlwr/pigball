@@ -198,6 +198,8 @@ export class HitMarks {
   }
 }
 
+const SIDEWAYS_SHAKE_TRAUMA = 0.3;
+
 export class Shake {
   private trauma = 0;
 
@@ -208,6 +210,7 @@ export class Shake {
   offset(dt: number, maxOffset: number): [number, number] {
     this.trauma = Math.max(0, this.trauma - dt * 2.5);
     const s = this.trauma * this.trauma * maxOffset;
-    return [(Math.random() * 2 - 1) * s, (Math.random() * 2 - 1) * s];
+    const x = this.trauma < SIDEWAYS_SHAKE_TRAUMA ? 0 : (Math.random() * 2 - 1) * s;
+    return [x, (Math.random() * 2 - 1) * s];
   }
 }
