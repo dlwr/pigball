@@ -196,14 +196,17 @@ export class Screens {
     );
   }
 
-  runEnd(run: Run, score: number, onMenu: () => void): void {
+  runEnd(run: Run, score: number, onRetry: () => void, onMenu: () => void): void {
     const won = run.phase === "won";
     this.show(
       `<div class="screen-kicker">${won ? "RUN CLEAR" : `STAGE ${run.stage + 1} で命が尽きた`}</div>
        <div class="screen-goal"><span>${won ? "おめでとう" : "最後のスコア"}</span>${won ? `${STAGES.length} / ${STAGES.length}` : format(score)}</div>
        ${won ? "" : `<p class="screen-lead">目標 ${format(run.stageDef.target)}</p>`}
        ${this.charmList(run)}`,
-      [{ label: "メニューへ", run: onMenu, primary: true }],
+      [
+        { label: "メニューへ", run: onMenu },
+        { label: "もう一度", run: onRetry, primary: true },
+      ],
     );
   }
 
