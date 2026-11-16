@@ -5,7 +5,7 @@ import { type Game, type GameEvent, RAMPS_FOR_EXTRA_BALL, RAMPS_FOR_MULTIBALL, t
 import { type Side, TABLE_HEIGHT, TABLE_WIDTH } from "../game/table";
 import type { Ball, Flipper, SegmentDef } from "../physics/world";
 import { LAYER_RAMP } from "../physics/world";
-import { Sparks, Shake, Trail } from "./effects";
+import { HitMarks, Sparks, Shake, Trail } from "./effects";
 import { RampView } from "./ramp";
 import { PALETTE } from "./palette";
 import { fitTiltedCamera } from "./camera";
@@ -79,6 +79,7 @@ export class TableRenderer {
   private readonly kickbackLights: Record<Side, THREE.MeshStandardMaterial>;
   private readonly shotMarkers: ShotMarker[];
   private readonly sparks = new Sparks();
+  private readonly hitMarks = new HitMarks();
   private readonly shake = new Shake();
   private readonly ramp: RampView;
   private squash = 0;
@@ -139,6 +140,7 @@ export class TableRenderer {
     this.scene.add(this.ramp.group);
 
     this.scene.add(this.sparks.points);
+    this.scene.add(this.hitMarks.group);
 
     this.composer = new EffectComposer(this.renderer, { multisampling: Math.min(4, this.renderer.capabilities.maxSamples) });
     this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -199,6 +201,7 @@ export class TableRenderer {
         this.flash(event.id);
         this.jiggleEyes(event.x, event.y, 25);
         this.sparks.burst(event.x, event.y, 18, 40, new THREE.Color(PALETTE.pigSnout));
+        this.hitMarks.burst(event.x, event.y, 2.5 + strength * 2.5);
         this.shake.add(0.15);
         this.impact(event.speed);
         break;
@@ -216,11 +219,13 @@ export class TableRenderer {
       case "piggy":
         this.piggy.bump();
         this.sparks.burst(event.x, event.y, 14, 35, new THREE.Color(PALETTE.truffle), 2.5);
+        this.hitMarks.burst(event.x, event.y, 3);
         this.jiggleEyes(event.x, event.y, 10);
         break;
       case "piggyBreak":
         this.sparks.burst(event.x, event.y, 90, 70, new THREE.Color(PALETTE.truffle), 2.5);
         this.sparks.burst(event.x, event.y, 40, 50, new THREE.Color(PALETTE.pigSkin), 2.5);
+        this.hitMarks.burst(event.x, event.y, 8);
         this.shake.add(0.45);
         break;
       case "navelIn":
@@ -240,6 +245,7 @@ export class TableRenderer {
       case "eye":
         if (event.id) this.partEyes.get(event.id)?.jiggle(60);
         this.sparks.burst(event.x, event.y, 12, 30, new THREE.Color(PALETTE.tooth));
+        this.hitMarks.burst(event.x, event.y, 3);
         this.jiggleEyes(event.x, event.y, 15);
         this.impact(event.speed);
         break;
@@ -262,15 +268,18 @@ export class TableRenderer {
         this.flash(event.id?.replace(/-\d+$/, ""));
         this.jiggleEyes(event.x, event.y, 18);
         this.sparks.burst(event.x, event.y, 10, 30, new THREE.Color(PALETTE.pigLips));
+        this.hitMarks.burst(event.x, event.y, 3);
         this.shake.add(0.15);
         this.impact(event.speed);
         break;
       case "shot":
         this.sparks.burst(event.x, event.y, 50 + event.speed * 15, 60, new THREE.Color(PALETTE.laneOn), 2.5);
+        this.hitMarks.burst(event.x, event.y, 5 + event.speed);
         this.shake.add(0.25);
         break;
       case "target":
         this.sparks.burst(event.x, event.y, 14, 35, new THREE.Color(PALETTE.tooth));
+        this.hitMarks.burst(event.x, event.y, 3);
         this.shake.add(0.2);
         this.impact(event.speed);
         break;
@@ -283,6 +292,7 @@ export class TableRenderer {
       case "jackpot":
         this.ramp.flash();
         this.sparks.burst(event.x, event.y, 120, 80, new THREE.Color(PALETTE.bumper), 3);
+        this.hitMarks.burst(event.x, event.y, 9);
         this.shake.add(0.5);
         break;
       case "kickback":
@@ -309,6 +319,7 @@ export class TableRenderer {
       case "wall":
         if (event.speed > 60) {
           this.sparks.burst(event.x, event.y, Math.round(strength * 10), 25 * strength, new THREE.Color(PALETTE.spark));
+          this.hitMarks.burst(event.x, event.y, 1.2 + strength * 2.2);
           this.shake.add(strength * 0.12);
         }
         this.impact(event.speed);
@@ -343,6 +354,7 @@ export class TableRenderer {
     this.syncFlippers(alpha);
     this.syncProps(dt);
     this.sparks.update(dt);
+    this.hitMarks.update(dt);
     this.ramp.update(
       dt,
       this.game.world.balls.filter((b) => b.layer === LAYER_RAMP),
