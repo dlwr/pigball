@@ -95,6 +95,8 @@ const MULTIBALL_SAVE_SECONDS = 10;
 const AUTO_LAUNCH_INTERVAL = 0.7;
 const AUTO_LAUNCH_Y = 10;
 const AUTO_LAUNCH_SPEED = 180;
+const LANE_REST_SPEED = 1;
+const LANE_RELAUNCH_SECONDS = 0.5;
 export const MAX_SHOT_LEVEL = 5;
 
 export type Shot = "ramp" | "target" | "piggy" | "belly" | "eye" | "stomach";
@@ -217,6 +219,7 @@ export class Game {
   private targetReached = false;
   private readonly saucers: SaucerState[];
   private autoLaunchTime = 0;
+  private laneRestTime = 0;
   private tiltMeter = 0;
   private targetResetTime = 0;
   private readonly targets: Segment[];
@@ -378,6 +381,7 @@ export class Game {
     this.checkLaunched();
     this.checkDrain();
     this.stepAutoLaunch(dt);
+    this.relaunchFromLane(dt);
     if (this.inMultiball && this.ballsInPlay <= 1) this.inMultiball = false;
     this.checkTarget();
     this.stepFever(dt);
@@ -467,6 +471,18 @@ export class Game {
     const ball = this.world.spawnBall(SHOOTER_X, AUTO_LAUNCH_Y, BALL_RADIUS);
     ball.vy = AUTO_LAUNCH_SPEED;
     this.emit("launch", SHOOTER_X, AUTO_LAUNCH_Y, 1);
+  }
+
+  private relaunchFromLane(dt: number): void {
+    const resting =
+      this.state === "playing" && !this.world.plunger?.held
+        ? this.world.balls.find((ball) => !ball.frozen && ball.x > PLAYFIELD_WIDTH && ball.y < AUTO_LAUNCH_Y && Math.hypot(ball.vx, ball.vy) < LANE_REST_SPEED)
+        : undefined;
+    this.laneRestTime = resting ? this.laneRestTime + dt : 0;
+    if (!resting || this.laneRestTime < LANE_RELAUNCH_SECONDS) return;
+    this.laneRestTime = 0;
+    resting.vy = AUTO_LAUNCH_SPEED;
+    this.emit("launch", resting.x, resting.y, 1);
   }
 
   private handle(event: PhysicsEvent): void {

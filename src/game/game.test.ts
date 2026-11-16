@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createParams } from "../physics/params";
 import { type Ball, LAYER_FLOOR } from "../physics/world";
 import { Game, type GameEvent, type GameRules, type ScoreStorage } from "./game";
-import { DRAIN_Y, SHOOTER_X } from "./table";
+import { BALL_RADIUS, DRAIN_Y, SHOOTER_X } from "./table";
 
 const DT = 1 / 960;
 
@@ -27,7 +27,12 @@ const gameWith = (rules: Partial<GameRules>) => new Game(createParams(), memoryS
 const ball = (game: Game) => game.world.balls[0];
 
 const place = (game: Game, x: number, y: number, vx = 0, vy = 0) => {
-  Object.assign(ball(game), { x, y, vx, vy, prevX: x, prevY: y });
+  Object.assign(ball(game), { x, y, vx, vy, prevX: x, prevY: y, frozen: false });
+};
+
+const park = (game: Game) => {
+  place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+  ball(game).frozen = true;
 };
 
 const drain = (game: Game) => {
@@ -56,7 +61,7 @@ const completeRamps = (game: Game, times: number) => {
 const completeRampsWithoutCombo = (game: Game, times: number) => {
   for (let i = 0; i < times; i++) {
     completeRamps(game, 1);
-    place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+    park(game);
     run(game, 4.1);
   }
 };
@@ -262,7 +267,7 @@ describe("Game", () => {
       const piggy = game.world.movers[0];
       place(game, piggy.x, piggy.y - piggy.r - ball(game).r - 2, 0, 80);
       run(game, 0.06);
-      place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+      park(game);
       run(game, 0.05);
     };
 
@@ -344,7 +349,7 @@ describe("Game", () => {
       for (let t = 0; t < 2 && !game.ballSaveActive; t += DT) game.step(DT);
       dropIntoNavel(game);
       while (ball(game).frozen) game.step(DT);
-      place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+      park(game);
       run(game, 7.4);
       expect(game.ballSaveActive).toBe(true);
     });
@@ -897,7 +902,7 @@ describe("Game", () => {
       for (let i = 0; i < passes; i++) {
         place(game, (spinner.ax + spinner.bx) / 2, spinner.ay - 2, 0, 300);
         run(game, 0.02);
-        place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+        park(game);
         run(game, 3);
       }
     };
@@ -1265,7 +1270,7 @@ describe("Game", () => {
         const piggy = game.world.movers[0];
         place(game, piggy.x, piggy.y - piggy.r - ball(game).r - 2, 0, 80);
         run(game, 0.06);
-        place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+        park(game);
         run(game, 0.05);
       }
       expect(game.world.movers[0].enabled).toBe(false);
@@ -1313,7 +1318,7 @@ describe("Game", () => {
       const piggy = game.world.movers[0];
       place(game, piggy.x, piggy.y - piggy.r - ball(game).r - 2, 0, 80);
       run(game, 0.06);
-      place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+      park(game);
       run(game, 0.05);
     };
 
@@ -1425,7 +1430,7 @@ describe("Game", () => {
       const eye = game.layout.eyes[index];
       place(game, eye.x, eye.y - eye.r - ball(game).r - 2, 0, 80);
       run(game, 0.06);
-      place(game, SHOOTER_X, game.layout.plunger.restY + ball(game).r + 0.01);
+      park(game);
       run(game, 0.05);
     };
 
@@ -1533,6 +1538,40 @@ describe("Game", () => {
         return false;
       });
       expect(reached.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe("プレイ中にシューターレーンに残ったボール", () => {
+    const leaveOneInLane = (game: Game) => {
+      place(game, 23, 60);
+      game.step(DT);
+      return game.world.spawnBall(SHOOTER_X, game.layout.plunger.restY + BALL_RADIUS + 0.01, BALL_RADIUS);
+    };
+
+    it("止まったままなら自動で打ち直してプレイフィールドに入れる", () => {
+      const game = newGame();
+      const left = leaveOneInLane(game);
+      let entered = false;
+      for (let t = 0; t < 3; t += DT) {
+        game.step(DT);
+        entered ||= left.x < 46;
+      }
+      expect(entered).toBe(true);
+    });
+
+    it("プランジャーを引いている間は打ち直さない", () => {
+      const game = newGame();
+      const left = leaveOneInLane(game);
+      game.world.plunger!.pullLimit = 0;
+      game.setPlunger(true);
+      run(game, 2);
+      expect(left.x).toBeGreaterThan(46);
+    });
+
+    it("打ち出す前のボールは勝手に打たない", () => {
+      const game = newGame();
+      run(game, 2);
+      expect(ball(game).x).toBeGreaterThan(46);
     });
   });
 });
