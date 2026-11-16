@@ -73,12 +73,14 @@ const saveRun = () => {
   else runStorage.clear();
 };
 
+const startRun = () => beginRun(new Run((Math.random() * 2 ** 31) | 0));
+
 const showMenu = () => {
   run = null;
   hud.setRun(null);
   screens.menu({
     canContinue: runStorage.load() !== null,
-    onRun: () => beginRun(new Run((Math.random() * 2 ** 31) | 0)),
+    onRun: startRun,
     onContinue: () => beginRun(Run.fromJSON(runStorage.load()!)),
     onFree: () => {
       screens.hide();
@@ -135,14 +137,14 @@ const settleStage = (dt: number) => {
   hud.setRun(current);
   const score = game.score;
   if (current.phase === "lost") {
-    screens.runEnd(current, score, showMenu);
+    screens.runEnd(current, score, startRun, showMenu);
     return;
   }
   if (current.retrying) {
     screens.stageFailed(current, showShop);
     return;
   }
-  screens.stageClear(current, () => (current.phase === "won" ? screens.runEnd(current, score, showMenu) : showShop()));
+  screens.stageClear(current, () => (current.phase === "won" ? screens.runEnd(current, score, startRun, showMenu) : showShop()));
 };
 
 if (debug) {

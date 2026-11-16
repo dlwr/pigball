@@ -22,6 +22,7 @@ export const STAGES: StageDef[] = [
 ];
 
 export const BALLS_PER_STAGE = 2;
+const RETRY_EXTRA_BALLS = 1;
 export const MAX_CHARMS = 5;
 export const LIVES = 3;
 const SHOP_SIZE = 3;
@@ -104,7 +105,7 @@ export class Run {
     this.stageModifiers = [...modifiers];
     const curse = this.activeCurse;
     if (curse) modifiers.push(toModifier(curse.id, curse.effect));
-    return { balls: BALLS_PER_STAGE, target: this.stageDef.target, modifiers, parts: { ...this.parts } };
+    return { balls: BALLS_PER_STAGE + (this.retrying ? RETRY_EXTRA_BALLS : 0), target: this.stageDef.target, modifiers, parts: { ...this.parts } };
   }
 
   growth(id: string): number {
