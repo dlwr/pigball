@@ -1,10 +1,12 @@
-import { type BonusKind, type BonusTally, type Game, type GameEvent, RAMPS_FOR_MULTIBALL } from "../game/game";
+import { type BonusKind, type BonusTally, type Game, type GameEvent, type GameEventKind, RAMPS_FOR_MULTIBALL } from "../game/game";
 import { CHARMS } from "../run/charms";
 import { type Run, STAGES } from "../run/run";
 
 const TALLY_STEP_SECONDS = 0.28;
 const TALLY_HOLD_SECONDS = 1;
 const TALLY_LABELS: Record<BonusKind, string> = { bumper: "鼻", ramp: "ホース", target: "歯", rollover: "レーン" };
+
+const WIN_FLASH_KINDS = new Set<GameEventKind>(["jackpot", "multiball", "piggyBreak", "fever"]);
 
 const isTouch = () => matchMedia("(pointer: coarse)").matches;
 
@@ -16,6 +18,7 @@ export class Hud {
   private readonly multiplier: HTMLElement;
   private readonly message: HTMLElement;
   private readonly toast: HTMLElement;
+  private readonly flash: HTMLElement;
   private readonly result: HTMLElement;
   private readonly run: HTMLElement;
   private readonly goalBar: HTMLElement;
@@ -34,6 +37,7 @@ export class Hud {
     this.root = document.createElement("div");
     this.root.className = "hud";
     this.root.innerHTML = `
+      <div class="hud-flash"></div>
       <div class="hud-top">
         <div class="hud-score"></div>
         <div class="hud-meta">
@@ -62,6 +66,7 @@ export class Hud {
     this.multiplier = this.root.querySelector(".hud-mult")!;
     this.message = this.root.querySelector(".hud-message")!;
     this.toast = this.root.querySelector(".hud-toast")!;
+    this.flash = this.root.querySelector(".hud-flash")!;
     this.result = this.root.querySelector(".hud-result")!;
     this.run = this.root.querySelector(".hud-run")!;
     this.goalBar = this.root.querySelector(".hud-goal-bar")!;
@@ -109,6 +114,8 @@ export class Hud {
       this.fireCharm(event.id, event.speed);
       return;
     }
+    if (event.kind === "drain") this.flashScreen("miss");
+    else if (WIN_FLASH_KINDS.has(event.kind)) this.flashScreen("win");
     if (event.kind === "ramp") this.showToast(this.rampText(event.speed, game));
     else if (event.kind === "lanes") this.showToast(`MULTIPLIER ×${game.multiplier}`);
     else if (event.kind === "bank") this.showToast("TARGET BANK");
@@ -128,6 +135,12 @@ export class Hud {
     else if (event.kind === "stageClear") this.showToast("STAGE CLEAR!");
     else if (event.kind === "fever") this.showToast("FEVER!");
     else if (event.kind === "bonus" && event.tally) this.startTally(event.tally);
+  }
+
+  private flashScreen(kind: "miss" | "win"): void {
+    this.flash.className = "hud-flash";
+    void this.flash.offsetWidth;
+    this.flash.classList.add(kind);
   }
 
   private rampText(combo: number, game: Game): string {
