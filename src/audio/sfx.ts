@@ -1,10 +1,16 @@
 import type { GameEvent } from "../game/game";
+import { type SoundPriority, soundPriority } from "./priority";
 
 type Wave = OscillatorType;
+
+const DUCKED_GAIN = 0.35;
+const DUCK_HOLD_SECONDS = 0.35;
 
 export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  private buses: Record<SoundPriority, GainNode> | null = null;
+  private bus: GainNode | null = null;
   private noise: AudioBuffer | null = null;
   private lastPlayed = new Map<string, number>();
 
@@ -17,6 +23,10 @@ export class Sfx {
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.6;
       this.master.connect(compressor).connect(this.ctx.destination);
+      this.buses = { major: this.ctx.createGain(), minor: this.ctx.createGain() };
+      this.buses.major.connect(this.master);
+      this.buses.minor.connect(this.master);
+      this.bus = this.buses.major;
       this.noise = this.createNoise(this.ctx);
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
@@ -31,20 +41,33 @@ export class Sfx {
     if (this.ctx?.state === "running") void this.ctx.suspend();
   }
 
+  private route(priority: SoundPriority): void {
+    const { ctx, buses } = this;
+    if (!ctx || !buses) return;
+    this.bus = buses[priority];
+    if (priority !== "major") return;
+    const t = ctx.currentTime;
+    buses.minor.gain.cancelScheduledValues(t);
+    buses.minor.gain.setTargetAtTime(DUCKED_GAIN, t, 0.01);
+    buses.minor.gain.setTargetAtTime(1, t + DUCK_HOLD_SECONDS, 0.15);
+  }
+
   solenoid(): void {
+    this.route("minor");
     this.burst(2400, 0.035, 0.35, 3);
     this.tone("square", 90, 60, 0.04, 0.15);
   }
 
   play(event: GameEvent): void {
     const s = Math.min(1, event.speed / 300);
+    this.route(soundPriority(event.kind));
     this.voice(event, s);
     switch (event.kind) {
       case "bumper":
         if (!this.throttle("bumper", 0.04)) return;
-        this.tone("sine", 220, 70, 0.16, 0.7);
-        this.tone("sawtooth", 660, 330, 0.06, 0.15);
-        this.burst(1800, 0.03, 0.4, 2);
+        this.tone("sine", 220, 70, 0.16, 0.5);
+        this.tone("sawtooth", 660, 330, 0.06, 0.12);
+        this.burst(1800, 0.03, 0.3, 2);
         break;
       case "mud":
         this.tone("sine", 90, 60, 0.25, 0.5);
@@ -89,7 +112,9 @@ export class Sfx {
         this.burst(1200, 0.04, 0.4, 2);
         break;
       case "shot":
-        this.arpeggio([659, 880, 1109, 1319].map((f) => f * (1 + (event.speed - 1) * 0.125)), 0.04, "triangle", 0.3);
+        this.tone("sine", 170, 55, 0.14, 0.7);
+        this.burst(4200, 0.18, 0.25, 0.8);
+        this.arpeggio([659, 880, 1109, 1319].map((f) => f * (1 + (event.speed - 1) * 0.125)), 0.04, "triangle", 0.4);
         break;
       case "bank":
         this.arpeggio([523, 659, 784, 1047], 0.06, "square", 0.25);
@@ -121,7 +146,7 @@ export class Sfx {
         break;
       case "wall":
         if (s < 0.05 || !this.throttle(`wall${event.id}`, 0.03)) return;
-        this.tone("triangle", 380 + s * 600, 200 + s * 200, 0.035, s * 0.6);
+        this.tone("triangle", 380 + s * 600, 200 + s * 200, 0.035, s * 0.45);
         this.burst(3000 + s * 3000, 0.02, s * 0.3, 1.5);
         break;
       case "launch":
@@ -171,6 +196,7 @@ export class Sfx {
   }
 
   tally(step: number, final: boolean): void {
+    this.route("major");
     if (final) {
       this.arpeggio([784, 988, 1175, 1568], 0.04, "square", 0.25);
       this.burst(3000, 0.2, 0.3, 0.8);
@@ -184,7 +210,7 @@ export class Sfx {
   private voice(event: GameEvent, s: number): void {
     switch (event.kind) {
       case "bumper":
-        if (this.throttle("squeal", 0.15)) this.oink(520 + Math.random() * 120, 0.09, 0.35, 1.6);
+        if (this.throttle("squeal", 0.15)) this.oink(520 + Math.random() * 120, 0.09, 0.2, 1.6);
         break;
       case "flipper":
       case "wall":
@@ -211,7 +237,7 @@ export class Sfx {
   }
 
   private oink(pitch: number, duration: number, volume: number, squeal = 1, delay = 0): void {
-    const { ctx, master, noise } = this;
+    const { ctx, bus: master, noise } = this;
     if (!ctx || !master || !noise || ctx.state !== "running" || volume <= 0) return;
     const t = ctx.currentTime + delay;
     const osc = ctx.createOscillator();
@@ -258,7 +284,7 @@ export class Sfx {
   }
 
   private tone(type: Wave, from: number, to: number, duration: number, volume: number, delay = 0): void {
-    const { ctx, master } = this;
+    const { ctx, bus: master } = this;
     if (!ctx || !master || ctx.state !== "running") return;
     const t = ctx.currentTime + delay;
     const osc = ctx.createOscillator();
@@ -275,7 +301,7 @@ export class Sfx {
   }
 
   private burst(frequency: number, duration: number, volume: number, q: number): void {
-    const { ctx, master, noise } = this;
+    const { ctx, bus: master, noise } = this;
     if (!ctx || !master || !noise || ctx.state !== "running" || volume <= 0) return;
     const t = ctx.currentTime;
     const src = ctx.createBufferSource();
