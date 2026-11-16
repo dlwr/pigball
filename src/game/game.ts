@@ -481,6 +481,7 @@ export class Game {
     this.laneRestTime = resting ? this.laneRestTime + dt : 0;
     if (!resting || this.laneRestTime < LANE_RELAUNCH_SECONDS) return;
     this.laneRestTime = 0;
+    this.history = [];
     resting.vy = AUTO_LAUNCH_SPEED;
     this.emit("launch", resting.x, resting.y, 1);
   }
@@ -569,6 +570,7 @@ export class Game {
     this.piggyRespawnTime -= dt;
     if (this.piggyRespawnTime > 0) return;
     this.world.movers[0].enabled = true;
+    this.history = [];
     this.piggyHits = 0;
     const piggy = this.world.movers[0];
     this.emit("piggyBack", piggy.x, piggy.y, 1);
@@ -614,6 +616,7 @@ export class Game {
       Object.assign(ball, { frozen: false, vx: def.ejectX * NAVEL_EJECT_SPEED, vy: def.ejectY * NAVEL_EJECT_SPEED });
       saucer.ball = null;
       saucer.cooldown = NAVEL_RECAPTURE_SECONDS;
+      this.history = [];
       if (def === this.layout.navel) this.emit("navelOut", def.x, def.y, NAVEL_EJECT_SPEED);
       else this.emit("stomachOut", def.x, def.y, NAVEL_EJECT_SPEED, def.id);
     }
