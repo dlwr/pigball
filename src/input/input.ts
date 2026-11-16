@@ -7,12 +7,14 @@ export interface Controls {
   nudge(dx: number, dy: number): void;
   restart(): void;
   toggleMusic(): void;
+  pause(): void;
   blocked(): boolean;
   interact(): void;
 }
 
 const LEFT_KEYS = new Set(["ShiftLeft", "KeyZ"]);
 const RIGHT_KEYS = new Set(["ShiftRight", "Slash"]);
+const ARROW_FLIPPERS: Record<string, "left" | "right"> = { ArrowLeft: "left", ArrowRight: "right" };
 const NUDGE_KEYS: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
   ArrowRight: [1, 0],
@@ -51,7 +53,9 @@ export const bindInput = (target: HTMLElement, controls: Controls): (() => void)
     } else if (e.code in NUDGE_KEYS && spaceHeld) {
       const [dx, dy] = NUDGE_KEYS[e.code];
       controls.nudge(dx, dy);
-    } else if (e.code === "KeyM") controls.toggleMusic();
+    } else if (e.code in ARROW_FLIPPERS) controls.flipper(ARROW_FLIPPERS[e.code], true);
+    else if (e.code === "KeyM") controls.toggleMusic();
+    else if (e.code === "Escape" || e.code === "KeyP") controls.pause();
     else if (e.code === "Enter" && controls.state() === "over") controls.restart();
     else return;
     e.preventDefault();
@@ -60,6 +64,7 @@ export const bindInput = (target: HTMLElement, controls: Controls): (() => void)
   const onKeyUp = (e: KeyboardEvent) => {
     if (LEFT_KEYS.has(e.code)) controls.flipper("left", false);
     else if (RIGHT_KEYS.has(e.code)) controls.flipper("right", false);
+    else if (e.code in ARROW_FLIPPERS) controls.flipper(ARROW_FLIPPERS[e.code], false);
     else if (e.code === "Space") {
       spaceHeld = false;
       controls.plunger(false, 1);

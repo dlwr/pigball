@@ -38,6 +38,28 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.hud-pause {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  background: rgba(13, 4, 8, 0.6);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.hud-pause::before {
+  content: "";
+  position: absolute;
+  inset: 10px 12px;
+  border-left: 4px solid var(--text);
+  border-right: 4px solid var(--text);
+}
+
 .hud-flash {
   position: absolute;
   inset: 0;
@@ -339,6 +361,23 @@ body {
 .screen-curse strong {
   display: block;
   color: var(--accent);
+}
+
+.key-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 14px;
+  margin: 14px 0 0;
+  font-size: 14px;
+}
+
+.key-list dt {
+  color: var(--muted);
+}
+
+.key-list dd {
+  margin: 0;
+  font-weight: 700;
 }
 
 .screen-sub {
